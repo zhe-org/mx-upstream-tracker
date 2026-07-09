@@ -1,0 +1,50 @@
+name: Nightly release tracker
+
+on:
+  schedule:
+    # 09:00 UTC daily (spec: recommended starting point).
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}  # allow manual re-trigger
+
+permissions:
+  contents: write   # to commit updated state/processed.json
+  issues: write     # to post the report as an issue (Milestone 7)
+
+concurrency:
+  group: release-tracker
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      LLM_MODEL: gemini-2.5-pro
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync
+
+      # NOTE (Milestone 4): trial merges need an LXD host. GitHub-hosted
+      # runners don't provide one out of the box; a self-hosted runner with
+      # LXD (or a dedicated LXD remote via LXD_REMOTE) is required before the
+      # preflight trial-merge step is enabled.
+      - name: Run tracker
+        run: uv run python main.py
+
+      - name: Persist processed-tag state
+        run: |
+          if [[ -n "$(git status --porcelain state/)" ]]; then
+            git config user.name "release-tracker-bot"
+            git config user.email "release-tracker-bot@users.noreply.github.com"
+            git add state/
+            git commit -m "chore: update processed-tag state [skip ci]"
+            git push
+          fi
