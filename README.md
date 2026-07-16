@@ -19,17 +19,19 @@ Obsidian vault (`tasks/upstream-release-tracker-plan.md`).
 ## Layout
 
 ```
-config.py            # settings + secrets (env-driven)
-llm.py               # Copilot / gemini-2.5-pro chat model factory
-state.py             # processed-tag persistence (state/processed.json)
-models.py            # RepoConfig / Finding / GraphState schemas
-graph.py             # LangGraph wiring (orchestrator + repo sub-graph)
-main.py              # CLI entrypoint (single tracker pass)
-agents/              # orchestrator, preflight, analyzer, reporter nodes
-tools/               # github, git_ops, lxd, cve integrations
-registry.example.yaml# seed repo registry
-tests/               # skeleton smoke tests
-.github/workflows/   # ci.yml (lint+test) + nightly.yml (scheduled run)
+tracker/               # application package
+  config.py            # settings + secrets (env-driven)
+  state.py             # processed-tag persistence (state/processed.json)
+  models.py            # RepoConfig / Finding / GraphState schemas
+  registry.py          # upstream-tracker.yaml loader + validation
+  graph.py             # LangGraph wiring (orchestrator + repo sub-graph)
+  main.py              # CLI entrypoint (single tracker pass)
+  agents/              # orchestrator, preflight, analyzer, reporter nodes
+  tools/               # llm, github, git_ops, lxd, cve integrations
+upstream-tracker.yaml  # tracked-repo registry (the workflow's input)
+state/                 # processed-tag state (processed.json)
+tests/                 # skeleton + registry tests
+.github/workflows/     # ci.yml (lint+test) + nightly.yml (scheduled run)
 ```
 
 ## Getting started
@@ -37,11 +39,10 @@ tests/               # skeleton smoke tests
 ```bash
 uv sync                      # install deps (incl. dev tools)
 cp .env.example .env         # then set GH_TOKEN
-cp registry.example.yaml registry.yaml
 
 uv run ruff check .          # lint
 uv run pytest                # tests
-uv run python main.py        # build the graph (skeleton pass)
+uv run python -m tracker.main   # build the graph (skeleton pass)
 ```
 
 ## Status

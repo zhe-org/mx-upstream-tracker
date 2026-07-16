@@ -37,7 +37,7 @@ jobs:
       # LXD (or a dedicated LXD remote via LXD_REMOTE) is required before the
       # preflight trial-merge step is enabled.
       - name: Run tracker
-        run: uv run python main.py
+        run: uv run python -m tracker.main
 
       - name: Persist processed-tag state
         run: |

@@ -16,11 +16,11 @@ from dotenv import load_dotenv
 # Load .env if present (no-op in CI where real env vars are already set).
 load_dotenv()
 
-# Repository root (this file lives at the project root).
-ROOT_DIR = Path(__file__).resolve().parent
+# Repository root (this file lives at tracker/config.py, so go up two levels).
+ROOT_DIR = Path(__file__).resolve().parent.parent
 
 # Default on-disk locations.
-DEFAULT_REGISTRY_PATH = ROOT_DIR / "registry.yaml"
+DEFAULT_TRACKER_PATH = ROOT_DIR / "upstream-tracker.yaml"
 DEFAULT_STATE_PATH = ROOT_DIR / "state" / "processed.json"
 DEFAULT_ARTIFACT_DIR = ROOT_DIR / "artifacts"
 
@@ -37,7 +37,7 @@ class Settings:
     llm_temperature: float
 
     # Paths.
-    registry_path: Path
+    tracker_path: Path
     state_path: Path
     artifact_dir: Path
 
@@ -61,7 +61,7 @@ def load_settings() -> Settings:
         llm_base_url=os.getenv("LLM_BASE_URL", "https://api.githubcopilot.com"),
         llm_model=os.getenv("LLM_MODEL", "gemini-2.5-pro"),
         llm_temperature=float(os.getenv("LLM_TEMPERATURE", "0.0")),
-        registry_path=Path(os.getenv("REGISTRY_PATH", str(DEFAULT_REGISTRY_PATH))),
+        tracker_path=Path(os.getenv("TRACKER_PATH", str(DEFAULT_TRACKER_PATH))),
         state_path=Path(os.getenv("STATE_PATH", str(DEFAULT_STATE_PATH))),
         artifact_dir=Path(os.getenv("ARTIFACT_DIR", str(DEFAULT_ARTIFACT_DIR))),
         lxd_remote=os.getenv("LXD_REMOTE", "local"),

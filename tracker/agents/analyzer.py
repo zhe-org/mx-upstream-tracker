@@ -12,7 +12,7 @@ Skeleton; node logic lands in Milestone 5.
 
 from __future__ import annotations
 
-from models import GraphState
+from tracker.models import GraphState
 
 
 def analyzer_node(state: GraphState) -> GraphState:

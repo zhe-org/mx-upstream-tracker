@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from langchain_openai import ChatOpenAI
 
-from config import Settings, load_settings
+from tracker.config import Settings, load_settings
 
 
 def get_chat_model(settings: Settings | None = None) -> ChatOpenAI:

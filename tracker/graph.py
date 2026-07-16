@@ -10,15 +10,15 @@ from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
 
-from agents.analyzer import analyzer_node
-from agents.orchestrator import (
+from tracker.agents.analyzer import analyzer_node
+from tracker.agents.orchestrator import (
     discover_releases_node,
     dispatch_node,
-    load_registry_node,
+    load_tracker_node,
 )
-from agents.preflight import preflight_node, route_after_preflight
-from agents.reporter import reporter_node
-from models import GraphState
+from tracker.agents.preflight import preflight_node, route_after_preflight
+from tracker.agents.reporter import reporter_node
+from tracker.models import GraphState
 
 
 def build_repo_subgraph():
@@ -40,13 +40,13 @@ def build_repo_subgraph():
 def build_graph():
     """Top-level orchestrator graph: discover -> dispatch -> report."""
     graph = StateGraph(GraphState)
-    graph.add_node("load_registry", load_registry_node)
+    graph.add_node("load_tracker", load_tracker_node)
     graph.add_node("discover_releases", discover_releases_node)
     graph.add_node("dispatch", dispatch_node)
     graph.add_node("reporter", reporter_node)
 
-    graph.add_edge(START, "load_registry")
-    graph.add_edge("load_registry", "discover_releases")
+    graph.add_edge(START, "load_tracker")
+    graph.add_edge("load_tracker", "discover_releases")
     graph.add_edge("discover_releases", "dispatch")
     graph.add_edge("dispatch", "reporter")
     graph.add_edge("reporter", END)

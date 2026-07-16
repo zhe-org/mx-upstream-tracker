@@ -1,0 +1,117 @@
+# Upstream tracker registry — the version-controlled input that drives the tracker.
+#
+# Each entry describes one tracked repo:
+#   name:                            upstream "owner/repo" short id
+#   upstream:                        upstream GitHub URL we watch for new tags
+#   canonical_repo:                  our Canonical fork on GitHub
+#   canonical_branch:                the fork's release branch
+#   canonical_tag:                   latest Canonical release tag on that branch
+#   last_incorporated_upstream_ref:  newest upstream ref already merged into the
+#                                    fork; the tracked line is implied by it
+#                                    (e.g. v1.14.6 => we track v1.14.*)
+
+repos:
+  - name: containernetworking/plugins
+    upstream: https://github.com/containernetworking/plugins
+    canonical_repo: https://github.com/canonical/mx-containernetworking-plugins
+    canonical_branch: canonical/1.9-26.04/stable
+    canonical_tag: v1.9.5-canonical-26.04-stable
+    last_incorporated_upstream_ref: v1.9.1
+
+  - name: containerd/containerd
+    upstream: https://github.com/containerd/containerd
+    canonical_repo: https://github.com/canonical/mx-containerd
+    canonical_branch: canonical/2.3-26.04/stable
+    canonical_tag: v2.3.13-canonical-26.04-stable
+    last_incorporated_upstream_ref: v2.3.3
+
+  - name: opencontainers/runc
+    upstream: https://github.com/opencontainers/runc
+    canonical_repo: https://github.com/canonical/mx-opencontainers-runc
+    canonical_branch: canonical/1.4-26.04/stable
+    canonical_tag: v1.4.7-canonical-26.04-stable
+    last_incorporated_upstream_ref: v1.4.3
+
+  - name: coredns/coredns
+    upstream: https://github.com/coredns/coredns
+    canonical_repo: https://github.com/canonical/mx-coredns
+    canonical_branch: canonical/1.14-26.04/stable
+    canonical_tag: v1.14.9-canonical-26.04-stable
+    last_incorporated_upstream_ref: v1.14.6
+
+  - name: etcd-io/etcd
+    upstream: https://github.com/etcd-io/etcd
+    canonical_repo: https://github.com/canonical/mx-etcd
+    canonical_branch: canonical/3.6-26.04/stable
+    canonical_tag: v3.6.9-canonical-26.04-stable
+    last_incorporated_upstream_ref: v3.6.13
+
+  - name: golang/go
+    upstream: https://github.com/golang/go
+    canonical_repo: https://github.com/canonical/mx-golang
+    canonical_branch: canonical/1.26-26.04/stable
+    canonical_tag: v1.26.5-canonical-26.04-stable
+    last_incorporated_upstream_ref: go1.26.5
+
+  - name: kubernetes/autoscaler
+    upstream: https://github.com/kubernetes/autoscaler
+    canonical_repo: https://github.com/canonical/mx-k8s-autoscaler
+    canonical_branch: canonical/20260701-26.04/stable
+    canonical_tag: v20260701.1-canonical-26.04-stable
+    last_incorporated_upstream_ref: cluster-autoscaler-1.36.0
+
+  - name: kubernetes-csi/external-attacher
+    upstream: https://github.com/kubernetes-csi/external-attacher
+    canonical_repo: https://github.com/canonical/mx-k8s-csi-external-attacher
+    canonical_branch: canonical/4.11-26.04/stable
+    canonical_tag: v4.11.5-canonical-26.04-stable
+    last_incorporated_upstream_ref: v4.11.0
+
+  - name: kubernetes-csi/external-provisioner
+    upstream: https://github.com/kubernetes-csi/external-provisioner
+    canonical_repo: https://github.com/canonical/mx-k8s-csi-external-provisioner
+    canonical_branch: canonical/6.2-26.04/stable
+    canonical_tag: v6.2.5-canonical-26.04-stable
+    last_incorporated_upstream_ref: v6.2.0
+
+  - name: kubernetes-csi/external-resizer
+    upstream: https://github.com/kubernetes-csi/external-resizer
+    canonical_repo: https://github.com/canonical/mx-k8s-csi-external-resizer
+    canonical_branch: canonical/2.1-26.04/stable
+    canonical_tag: v2.1.5-canonical-26.04-stable
+    last_incorporated_upstream_ref: v2.1.0
+
+  - name: kubernetes-csi/external-snapshotter
+    upstream: https://github.com/kubernetes-csi/external-snapshotter
+    canonical_repo: https://github.com/canonical/mx-k8s-csi-external-snapshotter
+    canonical_branch: canonical/8.5-26.04/stable
+    canonical_tag: v8.5.5-canonical-26.04-stable
+    last_incorporated_upstream_ref: v8.5.0
+
+  - name: kubernetes-csi/livenessprobe
+    upstream: https://github.com/kubernetes-csi/livenessprobe
+    canonical_repo: https://github.com/canonical/mx-k8s-csi-livenessprobe
+    canonical_branch: canonical/2.18-26.04/stable
+    canonical_tag: v2.18.5-canonical-26.04-stable
+    last_incorporated_upstream_ref: v2.18.0
+
+  - name: kubernetes-csi/node-driver-registrar
+    upstream: https://github.com/kubernetes-csi/node-driver-registrar
+    canonical_repo: https://github.com/canonical/mx-k8s-csi-node-driver-registrar
+    canonical_branch: canonical/2.16-26.04/stable
+    canonical_tag: v2.16.5-canonical-26.04-stable
+    last_incorporated_upstream_ref: v2.16.0
+
+  - name: kubernetes-sigs/cri-tools
+    upstream: https://github.com/kubernetes-sigs/cri-tools
+    canonical_repo: https://github.com/canonical/mx-k8s-sigs-cri-tools
+    canonical_branch: canonical/1.36-26.04/stable
+    canonical_tag: v1.36.7-canonical-26.04-stable
+    last_incorporated_upstream_ref: v1.36.0
+
+  - name: kubernetes/kubernetes
+    upstream: https://github.com/kubernetes/kubernetes
+    canonical_repo: https://github.com/canonical/mx-kubernetes
+    canonical_branch: canonical/1.36-26.04/stable
+    canonical_tag: v1.36.8-canonical-26.04-stable
+    last_incorporated_upstream_ref: v1.36.2

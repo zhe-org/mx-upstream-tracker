@@ -1,7 +1,7 @@
 """Orchestrator agent (Milestone 2).
 
 Cheap, deterministic bookkeeping + dispatch. Responsibilities:
-  - load the repo registry
+  - load the upstream tracker registry
   - discover new upstream tags matching each repo's constraint
   - dedupe against processed-tag state so we never double-report
   - spawn one sub-graph per repo that has new qualifying tags
@@ -12,12 +12,12 @@ This is a skeleton; node logic lands in Milestone 2.
 
 from __future__ import annotations
 
-from models import GraphState
+from tracker.models import GraphState
 
 
-def load_registry_node(state: GraphState) -> GraphState:
-    """Load and validate the repo registry into ``state['repos']``."""
-    raise NotImplementedError("Milestone 2: load + validate registry")
+def load_tracker_node(state: GraphState) -> GraphState:
+    """Load and validate the upstream tracker registry into ``state['repos']``."""
+    raise NotImplementedError("Milestone 2: load + validate tracker registry")
 
 
 def discover_releases_node(state: GraphState) -> GraphState:

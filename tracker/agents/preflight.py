@@ -14,7 +14,7 @@ Skeleton; node logic lands in Milestone 4.
 
 from __future__ import annotations
 
-from models import GraphState
+from tracker.models import GraphState
 
 
 def preflight_node(state: GraphState) -> GraphState:

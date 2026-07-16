@@ -9,9 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import config
-import state
-from graph import build_graph, build_repo_subgraph
+from tracker import config, state
+from tracker.graph import build_graph, build_repo_subgraph
 
 
 def test_settings_load_with_defaults(monkeypatch):

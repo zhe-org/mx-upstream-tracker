@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-k8s-upstream-tracker = "main:main"
+k8s-upstream-tracker = "tracker.main:main"
 
 [dependency-groups]
 dev = [

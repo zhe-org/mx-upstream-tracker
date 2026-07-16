@@ -7,13 +7,13 @@ wires everything up without executing node bodies.
 
 from __future__ import annotations
 
-from config import load_settings
-from graph import build_graph
+from tracker.config import load_settings
+from tracker.graph import build_graph
 
 
 def main() -> None:
     settings = load_settings()
-    print(f"k8s-upstream-tracker: model={settings.llm_model} registry={settings.registry_path}")
+    print(f"k8s-upstream-tracker: model={settings.llm_model} tracker={settings.tracker_path}")
     # Building the graph validates the wiring even before nodes are implemented.
     build_graph()
     print("Graph built. Node implementations arrive with Milestones 2-6.")

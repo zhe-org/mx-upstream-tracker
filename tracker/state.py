@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from config import load_settings
+from tracker.config import load_settings
 
 
 def _state_path(path: Path | None = None) -> Path:
