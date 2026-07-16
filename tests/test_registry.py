@@ -122,8 +122,6 @@ def test_missing_required_field_raises(tmp_path: Path):
 def test_unknown_field_rejected(tmp_path: Path):
     import yaml
 
-    path = _write(
-        tmp_path / "x.yaml", yaml.safe_dump({"repos": [_valid_entry(typo_field="x")]})
-    )
+    path = _write(tmp_path / "x.yaml", yaml.safe_dump({"repos": [_valid_entry(typo_field="x")]}))
     with pytest.raises(RegistryError, match="coredns/coredns"):
         load_registry(path)

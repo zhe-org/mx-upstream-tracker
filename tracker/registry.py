@@ -49,29 +49,22 @@ def load_registry(path: str | Path) -> list[RepoConfig]:
         raise RegistryError(f"Registry {path} is empty.")
 
     if not isinstance(raw, dict) or "repos" not in raw:
-        raise RegistryError(
-            f"Registry {path} must be a mapping with a top-level 'repos' key."
-        )
+        raise RegistryError(f"Registry {path} must be a mapping with a top-level 'repos' key.")
 
     repos_raw = raw["repos"]
     if not isinstance(repos_raw, list) or not repos_raw:
-        raise RegistryError(
-            f"Registry {path}: 'repos' must be a non-empty list of repo entries."
-        )
+        raise RegistryError(f"Registry {path}: 'repos' must be a non-empty list of repo entries.")
 
     repos: list[RepoConfig] = []
     for index, entry in enumerate(repos_raw):
         if not isinstance(entry, dict):
             raise RegistryError(
-                f"Registry {path}: repos[{index}] must be a mapping, got "
-                f"{type(entry).__name__}."
+                f"Registry {path}: repos[{index}] must be a mapping, got {type(entry).__name__}."
             )
         try:
             repos.append(RepoConfig(**entry))
         except ValidationError as exc:
             label = entry.get("name", f"index {index}")
-            raise RegistryError(
-                f"Registry {path}: invalid entry for '{label}':\n{exc}"
-            ) from exc
+            raise RegistryError(f"Registry {path}: invalid entry for '{label}':\n{exc}") from exc
 
     return repos
