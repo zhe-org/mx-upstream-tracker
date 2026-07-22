@@ -28,7 +28,6 @@ class RepoConfig(BaseModel):
       ``https://github.com/canonical/mx-coredns``.
     - ``canonical_branch``— the fork's release branch, e.g.
       ``canonical/1.14-26.04/stable``.
-    - ``canonical_tag``   — the latest Canonical release tag on that branch.
     - ``last_incorporated_upstream_ref`` — the newest upstream ref already
       merged into our fork (the spec's "last merged tag"; the orchestrator
       diffs new upstream tags against this). The tracked line is implied by
@@ -41,7 +40,6 @@ class RepoConfig(BaseModel):
     upstream: str
     canonical_repo: str
     canonical_branch: str
-    canonical_tag: str
     last_incorporated_upstream_ref: str
 
 
