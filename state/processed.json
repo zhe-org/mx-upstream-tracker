@@ -1,3 +1,10 @@
 {
-  "processed": {}
+  "processed": {
+    "kubernetes/autoscaler": [
+      "cluster-autoscaler-1.36.1"
+    ],
+    "kubernetes/kubernetes": [
+      "v1.36.3"
+    ]
+  }
 }
