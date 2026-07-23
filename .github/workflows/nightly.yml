@@ -32,10 +32,6 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      # NOTE (Milestone 4): trial merges need an LXD host. GitHub-hosted
-      # runners don't provide one out of the box; a self-hosted runner with
-      # LXD (or a dedicated LXD remote via LXD_REMOTE) is required before the
-      # preflight trial-merge step is enabled.
       - name: Run tracker
         run: uv run python -m tracker.main
 

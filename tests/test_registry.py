@@ -13,7 +13,7 @@ import pytest
 
 from tracker import config
 from tracker.models import RepoConfig
-from tracker.registry import RegistryError, load_registry
+from tracker.registry import RegistryError, load_registry, save_registry
 
 EXPECTED_REPO_COUNT = 15
 
@@ -24,7 +24,7 @@ def _valid_entry(**overrides) -> dict:
         "upstream": "https://github.com/coredns/coredns",
         "canonical_repo": "https://github.com/canonical/mx-coredns",
         "canonical_branch": "canonical/1.14-26.04/stable",
-        "last_incorporated_upstream_ref": "v1.14.6",
+        "current_upstream_tag": "v1.14.6",
     }
     entry.update(overrides)
     return entry
@@ -55,7 +55,7 @@ def test_seed_contains_kubernetes():
     repos = {r.name: r for r in load_registry(config.DEFAULT_TRACKER_PATH)}
     k8s = repos["kubernetes/kubernetes"]
     assert k8s.canonical_repo == "https://github.com/canonical/mx-kubernetes"
-    assert k8s.last_incorporated_upstream_ref == "v1.36.2"
+    assert k8s.current_upstream_tag == "v1.36.2"
 
 
 # --- Valid custom registry ----------------------------------------------
@@ -68,6 +68,14 @@ def test_valid_registry_roundtrips(tmp_path: Path):
     repos = load_registry(path)
     assert len(repos) == 1
     assert repos[0].name == "coredns/coredns"
+
+
+def test_save_registry_roundtrips(tmp_path: Path):
+    original = load_registry(config.DEFAULT_TRACKER_PATH)
+    out = tmp_path / "out.yaml"
+    save_registry(out, original)
+    reloaded = load_registry(out)
+    assert [r.model_dump() for r in reloaded] == [r.model_dump() for r in original]
 
 
 # --- Failure modes -------------------------------------------------------

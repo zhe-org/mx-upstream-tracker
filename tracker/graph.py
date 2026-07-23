@@ -1,24 +1,41 @@
-"""LangGraph assembly.
+"""Graph / pipeline assembly.
 
-Wires the top-level orchestrator graph and the per-repo sub-graph
-(preflight -> [analyzer if flagged] -> assemble). This module defines the
-skeleton structure; individual node implementations arrive with their
-milestones. ``build_graph`` returns a compiled graph ready to ``invoke``.
+This module owns everything that touches the compiled per-repo sub-graph:
+
+  - :func:`run_orchestrator` — the deterministic top-level pipeline
+    (load → discover → dispatch). Plain Python, not a LangGraph: the
+    orchestrator is bookkeeping + dispatch, so a linear function is clearer.
+  - :func:`build_repo_subgraph` — the per-repo worker, where LangGraph earns its
+    keep (the preflight gate conditionally routes to the analyzer).
+  - :func:`run_repo_subgraph` / :func:`dispatch` — fan-out: turn each
+    ``RepoJob`` into one ``Finding`` by invoking the sub-graph.
+
+Discovery (``load_tracker_node`` / ``discover_releases_node``) lives in
+:mod:`tracker.agents.orchestrator` and has no sub-graph knowledge, so the
+dependency flows one way (``graph`` → ``orchestrator``) with no import cycle.
 """
 
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor
+
 from langgraph.graph import END, START, StateGraph
 
 from tracker.agents.analyzer import analyzer_node
-from tracker.agents.orchestrator import (
-    discover_releases_node,
-    dispatch_node,
-    load_tracker_node,
-)
+from tracker.agents.orchestrator import discover_releases_node, load_tracker_node
 from tracker.agents.preflight import preflight_node, route_after_preflight
-from tracker.agents.reporter import reporter_node
-from tracker.models import GraphState
+from tracker.config import load_settings
+from tracker.models import Finding, GraphState, RepoJob
+
+
+def run_orchestrator() -> GraphState:
+    """Run the orchestrator pipeline (load → discover → dispatch) and return state."""
+    state: GraphState = {}
+    state.update(load_tracker_node(state))
+    state.update(discover_releases_node(state))
+    state.update(dispatch(state))
+    return state
 
 
 def build_repo_subgraph():
@@ -37,17 +54,48 @@ def build_repo_subgraph():
     return sub.compile()
 
 
-def build_graph():
-    """Top-level orchestrator graph: discover -> dispatch -> report."""
-    graph = StateGraph(GraphState)
-    graph.add_node("load_tracker", load_tracker_node)
-    graph.add_node("discover_releases", discover_releases_node)
-    graph.add_node("dispatch", dispatch_node)
-    graph.add_node("reporter", reporter_node)
+def run_repo_subgraph(job: RepoJob) -> Finding:
+    """Run the per-repo sub-graph for ``job`` and return its assembled finding.
 
-    graph.add_edge(START, "load_tracker")
-    graph.add_edge("load_tracker", "discover_releases")
-    graph.add_edge("discover_releases", "dispatch")
-    graph.add_edge("dispatch", "reporter")
-    graph.add_edge("reporter", END)
-    return graph.compile()
+    M2 stub: the preflight/analyzer nodes land in M4/M5, so for now we emit a
+    short shell finding (the repo config + the new tags). From M4 this invokes
+    ``build_repo_subgraph().invoke(...)`` and returns the assembled result.
+    """
+
+    return Finding(
+        repo=job.repo,
+        new_tags=[{"tag": tag} for tag in job.new_tags],
+    )
+
+
+def _worker_count(n_jobs: int, configured: int | None, cpu: int | None) -> int:
+    """Resolve the dispatch pool size.
+
+    Bounded by ``n_jobs`` (never spawn more workers than there is work) and, when
+    ``configured`` is unset, by the machine's CPU count. Always at least 1.
+    """
+    cap = configured if configured and configured > 0 else (cpu or 1)
+    return max(1, min(cap, n_jobs))
+
+
+def dispatch(state: GraphState) -> GraphState:
+    """Fan out one sub-graph per job, in parallel, and collect one finding each.
+
+    Repo jobs are I/O-bound (GitHub / git trial merge / LLM), so a thread pool
+    gives real concurrency while the GIL is released during those waits. Pool
+    size is capped by CPU count (each job's trial merge is heavy) and overridable
+    via ``DISPATCH_MAX_WORKERS``. ``ThreadPoolExecutor.map`` preserves input
+    order, so findings stay deterministic regardless of completion order.
+    """
+
+    jobs = state.get("jobs", [])
+    if not jobs:
+        return {"findings": []}
+
+    workers = _worker_count(len(jobs), load_settings().dispatch_max_workers, os.cpu_count())
+    if workers == 1:
+        findings = [run_repo_subgraph(job) for job in jobs]
+    else:
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="repo") as pool:
+            findings = list(pool.map(run_repo_subgraph, jobs))
+    return {"findings": findings}

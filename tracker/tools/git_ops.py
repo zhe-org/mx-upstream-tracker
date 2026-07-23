@@ -1,14 +1,14 @@
 """Local git operations against our forks (Milestone 4).
 
-Used inside the ephemeral LXD container to check out a fork and attempt a
-trial merge of a new upstream tag. Skeleton only.
+Used to clone a fork branch into a throwaway temp workspace on the runner and
+attempt a trial merge of a new upstream tag. Skeleton only.
 """
 
 from __future__ import annotations
 
 
 def clone_fork(fork_url: str, dest: str) -> None:
-    raise NotImplementedError("Milestone 4: clone fork into container")
+    raise NotImplementedError("Milestone 4: clone fork into temp workspace")
 
 
 def trial_merge(dest: str, upstream_url: str, tag: str) -> dict:

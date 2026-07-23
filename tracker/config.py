@@ -41,8 +41,10 @@ class Settings:
     state_path: Path
     artifact_dir: Path
 
-    # LXD host used for ephemeral trial-merge containers (M4).
-    lxd_remote: str
+    # Max concurrent repo sub-graphs during dispatch. ``None`` => derive from the
+    # machine's CPU count. Each job is I/O-bound (GitHub / git / LLM), so this
+    # bounds heavy work (trial merges) rather than saturating cores.
+    dispatch_max_workers: int | None
 
     def require_gh_token(self) -> str:
         if not self.gh_token:
@@ -64,5 +66,16 @@ def load_settings() -> Settings:
         tracker_path=Path(os.getenv("TRACKER_PATH", str(DEFAULT_TRACKER_PATH))),
         state_path=Path(os.getenv("STATE_PATH", str(DEFAULT_STATE_PATH))),
         artifact_dir=Path(os.getenv("ARTIFACT_DIR", str(DEFAULT_ARTIFACT_DIR))),
-        lxd_remote=os.getenv("LXD_REMOTE", "local"),
+        dispatch_max_workers=_optional_int(os.getenv("DISPATCH_MAX_WORKERS")),
     )
+
+
+def _optional_int(value: str | None) -> int | None:
+    """Parse an optional positive int env var; blank/invalid/<=0 => ``None``."""
+    if not value:
+        return None
+    try:
+        parsed = int(value)
+    except ValueError:
+        return None
+    return parsed if parsed > 0 else None

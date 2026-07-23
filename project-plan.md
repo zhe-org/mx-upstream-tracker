@@ -18,7 +18,7 @@ Open questions the spec leaves unspecified; resolve before coding.
 - [x] State store for processed tags: **flat JSON file in the git repo** (`state/processed.json`).
 - [x] v1 trigger: **GitHub Actions nightly cron** (Option A) + `workflow_dispatch`.
 - [x] Create project skeleton, dependency manifest, lint/format/test tooling, CI stub.
-- [x] Set up secrets handling: `GH_TOKEN` for LLM + upstream/fork read; LXD host/socket for trial merges (`.env.example`).
+- [x] Set up secrets handling: `GH_TOKEN` for LLM + upstream/fork read (`.env.example`). (No LXD host/socket needed — trial merges run in a temp workspace on the already-isolated GitHub Actions runner.)
 
 ---
 
@@ -26,7 +26,7 @@ Open questions the spec leaves unspecified; resolve before coding.
 
 The version-controlled input that drives everything.
 
-- [x] Define `upstream-tracker.yaml` format (YAML) and schema: per repo — `name`, `upstream`, `canonical_repo`, `canonical_branch`, `last_incorporated_upstream_ref`. Schema is strict (`extra="forbid"`). The tracked line is implied by the upstream ref (e.g. `v1.14.6` ⇒ track `v1.14.*`), so no separate `tracked_version` field. Duplicate `name`s are allowed (multiple tracked versions of one component get one entry each). Dropped `reviewers`/`areas_to_watch` as unused. Dropped `canonical_tag` — since v1 does no real merge, we never learn the new fork tag; the fork's version is implied by `last_incorporated_upstream_ref` (assume the tracked new tag will be merged before the next upstream tag lands, and bump `last_incorporated_upstream_ref` accordingly).
+- [x] Define `upstream-tracker.yaml` format (YAML) and schema: per repo — `name`, `upstream`, `canonical_repo`, `canonical_branch`, `current_upstream_tag`. Schema is strict (`extra="forbid"`). The tracked line is implied by the tag (e.g. `v1.14.6` ⇒ track `v1.14.*`), so no separate `tracked_version` field. Duplicate `name`s are allowed (multiple tracked versions of one component get one entry each). Dropped `reviewers`/`areas_to_watch` as unused. Dropped `canonical_tag` — since v1 does no real merge, we never learn the new fork tag; the fork's version is implied by `current_upstream_tag`. Renamed `last_incorporated_upstream_ref` → `current_upstream_tag` (less confusing): it's the newest upstream tag our fork sits on, advanced by the finalize step (assume the reported tag merges before the next upstream tag lands). The registry header comment block was dropped since the file is now machine-rewritten by finalize.
 - [x] Implement registry loader + schema validation with clear errors (`tracker/registry.py`: `load_registry()` + `RegistryError`; clear messages for missing file, bad YAML, wrong shape, empty/non-list `repos`, per-entry validation).
 - [x] Seed registry with all 15 tracked repos (launchpad forks converted to `https://github.com/canonical/<name>`): `kubernetes/kubernetes`, `containerd/containerd`, `containernetworking/plugins`, `coredns/coredns`, `opencontainers/runc`, `etcd-io/etcd`, `golang/go`, `kubernetes/autoscaler`, `kubernetes-sigs/cri-tools`, and the 6 `kubernetes-csi/*` sidecars.
 - [x] Unit tests (`tests/test_registry.py`): seed parses to 15 repos, forks are canonical GitHub URLs; invalid/missing fields, bad YAML, wrong shape, and empty registry all rejected.
@@ -35,17 +35,25 @@ The version-controlled input that drives everything.
 
 ---
 
-#### Milestone 2 — Orchestrator agent
+#### Milestone 2 — Orchestrator agent ✅
 
 Bookkeeping + dispatch; keep it non-LLM and deterministic.
 
-- [ ] Implement upstream release discovery: GitHub Releases API + git tags (RSS optional) per repo.
-- [ ] Implement version-constraint matching (only tags newer than `last_incorporated_upstream_ref` on the tracked line implied by it).
-- [ ] Implement processed-tag state persistence so releases are never double-reported.
-- [ ] Implement dispatch: for every repo with ≥1 new qualifying tag, spawn a fresh sub-graph with minimal focused context.
-- [ ] Collect one assembled finding per sub-graph and hand off to reporter.
-- [ ] Handle "quiet run" (no new tags) cleanly — no wasted sub-graph spawns.
-- [ ] Unit tests: constraint matching, dedupe against state, dispatch fan-out.
+- [x] Implement upstream release discovery: GitHub tags API per repo (`tracker/tools/github.py::list_tags`, paginated, `GH_TOKEN` auth). Releases/RSS deferred — tags cover every tracked repo.
+- [x] Implement version-constraint matching (`tracker/versioning.py`): only tags newer than `current_upstream_tag` on the tracked line implied by it. Prefix-aware (`v`/`go`/`cluster-autoscaler-`), skips pre-releases (`rc`/`alpha`/`beta`), ignores unparseable tags, sorts oldest→newest.
+- [x] Implement processed-tag record (`tracker/state.py`): `save_processed` overwrites `processed.json` with the last run's reported tags — a **human-readable record** to read alongside the report. Not used for dedup: uniqueness is guaranteed by `current_upstream_tag` in the registry (advanced by finalize), so discovery's `select_new_tags` never re-surfaces a reported tag.
+- [x] Implement dispatch: one `RepoJob` per repo with ≥1 new qualifying tag → one sub-graph invocation (`graph.dispatch` → `run_repo_subgraph`), run **in parallel** across repos. Sub-graph body (preflight/analyzer) is M4/M5, so `run_repo_subgraph` emits a **shell finding** for now.
+- [x] Collect one assembled finding per sub-graph into `state['findings']` and hand off to reporter.
+- [x] Handle "quiet run" (no new tags) cleanly — empty `jobs`, no sub-graph spawns, finalize is a no-op.
+- [x] Unit tests: constraint matching (`tests/test_versioning.py`), discovery + dedupe + quiet run + dispatch fan-out + finalize (`tests/test_orchestrator.py`).
+
+> **Finalize step** (`tracker/finalize.py`, run at end of `main`): writes the `processed.json` snapshot **and** advances `current_upstream_tag` in `upstream-tracker.yaml` to the newest reported tag per repo (via `registry.save_registry`), so the next nightly run starts from the advanced baseline. Kept out of the graph so M7 can gate it on successful delivery. **M7 implication:** the nightly job must commit the updated `upstream-tracker.yaml` + `processed.json` back to the repo.
+
+> **Graph shape:** the top-level `build_graph()` was removed. `graph.py` owns the sub-graph and its invocation (`build_repo_subgraph`, `run_repo_subgraph`, `dispatch`, and the `run_orchestrator` pipeline); `orchestrator.py` is pure discovery (`load_tracker_node`, `discover_releases_node`) with no sub-graph knowledge, so the dependency flows one way (`graph` → `orchestrator`) with no import cycle. LangGraph is reserved for the per-repo sub-graph (preflight→analyzer conditional routing) where it earns its keep; dispatch will invoke that compiled sub-graph per repo from M4.
+
+> **Finding model:** holds the whole `RepoConfig` as `repo` (not flattened fields), so preflight's trial merge has `canonical_repo`/`canonical_branch`/`upstream` and the reporter derives `tracked_version`/`last_merged_tag` from `current_upstream_tag`.
+
+> **Parallel dispatch:** repos are processed concurrently via a `ThreadPoolExecutor` (repo jobs are I/O-bound — GitHub / git trial merge / LLM — so threads give real concurrency and the GIL is released during those waits; a process pool would add pickling pain for no benefit). Pool size is capped by CPU count (each trial merge is heavy) and overridable via `DISPATCH_MAX_WORKERS`. `map` preserves input order, so findings stay deterministic.
 
 ---
 
@@ -67,10 +75,10 @@ Runs on every new tag; decides clean vs flagged.
 - [ ] Fetch upstream release notes / docs diff for the new tag(s).
 - [ ] Inspect tag metadata + tag-to-tag commit log vs our last merged tag.
 - [ ] CVE scan across release notes, commit messages, and dependency manifest changes (`go.mod`, vendor).
-- [ ] Trial merge in an **ephemeral LXD container**: spin container, checkout fork, attempt merge of new upstream tag, capture output (conflicting files, failed patch applies, build breakage). Merge need not succeed.
-- [ ] Tear down container afterwards; ensure real fork is never touched; stash captured merge log as an artifact.
+- [ ] Trial merge in a **throwaway temp workspace on the runner**: clone the fork branch into a temp dir, attempt to merge the new upstream tag, capture output (conflicting files, failed patch applies, build breakage). Merge need not succeed. (No LXD — the GitHub Actions runner is already an isolated, ephemeral environment.)
+- [ ] Clean up the temp workspace afterwards; the real fork is never touched (we only ever work on a throwaway local clone); stash the captured merge log as an artifact.
 - [ ] Decision logic: emit "all clear" finding directly when no CVEs / no notable changes / clean merge; otherwise build a **handoff bundle** (flagged items + evidence: diff hunks, CVE ids, merge output) for the analyzer.
-- [ ] Tests: clean path emits short finding & never invokes analyzer; flagged path produces correct handoff bundle. Mock LXD + GitHub in tests.
+- [ ] Tests: clean path emits short finding & never invokes analyzer; flagged path produces correct handoff bundle. Mock git + GitHub in tests.
 
 ---
 
@@ -102,7 +110,7 @@ Consumes structured findings only (no raw diffs).
 - [ ] Implement GitHub Actions scheduled workflow (daily cron, e.g. 09:00 UTC) in a dedicated tracker repo: checkout registry → run orchestrator → publish report.
 - [ ] Publish report as issue/PR comment in the tracker repo and attach JSON artifact.
 - [ ] Post TL;DR to Mattermost channel via webhook.
-- [ ] Ensure LXD host/socket is available to the runner (or documented external runner requirement).
+- [ ] Ensure `git` is available on the runner for trial merges (default on GitHub-hosted runners; no LXD/external host required).
 - [ ] Manual re-trigger path (workflow_dispatch).
 
 ---
@@ -130,4 +138,4 @@ Consumes structured findings only (no raw diffs).
 - Per-repo sub-graph (preflight gate + conditional analyzer) → M4 + M5.
 - Assembled finding schema → M3.
 - Reporter (md/json/tldr) → M6.
-- Integration Option A/B/C + required inputs (registry, creds, LXD, CVE db) → M0, M1, M7, M8.
+- Integration Option A/B/C + required inputs (registry, creds, CVE db) → M0, M1, M7, M8.

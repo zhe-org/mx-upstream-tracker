@@ -4,7 +4,7 @@ Runs on every new tag; the gate for the whole sub-graph. Always performs:
   - fetch release notes / docs diff
   - inspect tag metadata + tag-to-tag commit log vs our last merged tag
   - CVE scan (release notes, commit messages, dependency manifest changes)
-  - trial merge in an ephemeral LXD container (capture output; may fail)
+  - trial merge in a throwaway temp workspace on the runner (capture output; may fail)
 
 Then decides ``clean`` (emit short all-clear finding) or ``flagged`` (build a
 handoff bundle of flagged items + evidence for the analyzer).

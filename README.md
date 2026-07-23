@@ -27,7 +27,7 @@ tracker/               # application package
   graph.py             # LangGraph wiring (orchestrator + repo sub-graph)
   main.py              # CLI entrypoint (single tracker pass)
   agents/              # orchestrator, preflight, analyzer, reporter nodes
-  tools/               # llm, github, git_ops, lxd, cve integrations
+  tools/               # llm, github, git_ops, cve integrations
 upstream-tracker.yaml  # tracked-repo registry (the workflow's input)
 state/                 # processed-tag state (processed.json)
 tests/                 # skeleton + registry tests

@@ -132,8 +132,8 @@ assembler:
    |   - fetch release notes / docs diff             |
    |   - inspect new tag(s) & commit log             |
    |   - scan for CVE references                     |
-   |   - spin ephemeral LXD container, attempt the   |
-   |     trial merge, capture output                 |
+   |   - trial merge in a throwaway temp workspace   |
+   |     on the runner, capture output               |
    |        (the merge need not succeed)             |
    |                                                 |
    |   clean?   --> emit "all clear" finding --------+---> finding
@@ -163,12 +163,14 @@ last merged tag, it always performs the following checks:
   log against our last merged tag.
 - **CVE scan.** Look for CVE references in release notes, commit messages,
   and dependency manifest changes (e.g. `go.mod`, vendor changes).
-- **Trial merge in an ephemeral LXD container.** Spin up a throwaway LXD
-  container, check out our fork, and attempt to merge the new upstream tag.
-  The merge does **not** need to succeed — the goal is to capture the
-  merge output (conflicting files, failed patch applications, obvious
-  build breakage). The container is destroyed afterwards; trial merges
-  never touch the real fork.
+- **Trial merge in a throwaway workspace.** Clone our fork branch into a
+  temporary working directory on the runner and attempt to merge the new
+  upstream tag. The merge does **not** need to succeed — the goal is to
+  capture the merge output (conflicting files, failed patch applications,
+  obvious build breakage). The temp workspace is deleted afterwards; trial
+  merges only ever touch a throwaway local clone, never the real fork. No
+  separate sandbox (e.g. LXD) is needed: the workflow runs on a GitHub
+  Actions runner, which is already an isolated, ephemeral environment.
 
 The preflight agent then makes a single decision:
 
@@ -217,7 +219,7 @@ new_tags:
       docs_reviewed: true
       cve_refs_found: true
       trial_merge:
-        environment: lxd-ephemeral
+        environment: runner-tmp-workspace
         result: conflict        # clean | conflict | error
         conflicting_paths:
           - pkg/kubelet/eviction/eviction_manager.go
@@ -289,8 +291,10 @@ Takes all per-repo findings and produces:
 - The analyzer only runs when something is actually flagged, and it sees a
   focused handoff bundle (the flagged items plus evidence) rather than the
   full raw diff — so deep analysis stays targeted and affordable.
-- The trial merge runs in an ephemeral LXD container, so we get real merge
-  signal (conflicts, patch-apply failures) without any risk to the fork.
+- The trial merge runs in a throwaway temp workspace on the runner, so we
+  get real merge signal (conflicts, patch-apply failures) without any risk to
+  the fork — and, because the runner is already isolated and ephemeral, with
+  no extra sandboxing infrastructure.
 - The reporter sees only structured findings, not raw diffs, so it can
   reason about *the set of releases* without drowning in tokens.
 - Sub-graphs are spawned on the fly only for repos that actually have a new
@@ -346,8 +350,9 @@ Cons: noisier; more moving parts.
     extra alert about.
 - Credentials with read access to upstream repos (public is usually
   enough) and read access to our forks.
-- The ability to spin up ephemeral LXD containers for trial merges
-  (an LXD host / socket available to the workflow runner), plus somewhere
-  to stash the captured merge output as an artifact.
+- `git` available on the runner to perform trial merges in a temporary
+  workspace, plus somewhere to stash the captured merge output as an
+  artifact. No dedicated sandbox host is required — the GitHub Actions runner
+  is already isolated and ephemeral.
 - Optional: access to a CVE database (NVD, GitHub Advisory) for enriching
   dependency findings.
