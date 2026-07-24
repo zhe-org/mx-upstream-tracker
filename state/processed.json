@@ -1,5 +1,8 @@
 {
   "processed": {
+    "etcd-io/etcd": [
+      "v3.6.14"
+    ],
     "kubernetes/autoscaler": [
       "cluster-autoscaler-1.36.1"
     ],
