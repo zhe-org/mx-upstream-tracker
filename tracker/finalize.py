@@ -25,7 +25,7 @@ from tracker.versioning import newest_tag
 
 
 def _reported_tags(finding: Finding) -> list[str]:
-    return [entry["tag"] for entry in finding.new_tags if "tag" in entry]
+    return [entry.tag for entry in finding.new_tags]
 
 
 def finalize_run(

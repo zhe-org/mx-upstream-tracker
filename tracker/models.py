@@ -1,16 +1,19 @@
 """Data models shared across the graph.
 
 The :class:`Finding` schema is the contract between each repo sub-graph and the
-reporter (spec: "Assembled finding"). This is a skeleton placeholder fleshed
-out in Milestone 3 — only the outer shape is defined here so modules can import
-and type against it now.
+reporter (spec: "Assembled finding"). Everything except ``repo`` lives per-tag,
+inside each :class:`NewTagFinding`: one repo can jump several tags and each is
+judged on its own. The reporter consumes only these structured findings, never
+raw diffs or merge logs.
 """
 
 from __future__ import annotations
 
 from typing import Literal, TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
+
+from tracker.versioning import line_label
 
 Risk = Literal["low", "medium", "high"]
 Decision = Literal["clean", "flagged"]
@@ -46,20 +49,128 @@ class RepoConfig(BaseModel):
     current_upstream_tag: str
 
 
+class TrialMerge(BaseModel):
+    """Outcome of the preflight trial merge (M4).
+
+    Captured from merging the new upstream tag into a throwaway clone of the
+    fork branch on the runner. The merge need not succeed — ``result`` records
+    what happened and ``output_ref`` links the stashed merge log artifact.
+    """
+
+    environment: str = "runner-tmp-workspace"
+    result: MergeResult
+    conflicting_paths: list[str] = Field(default_factory=list)
+    output_ref: str | None = None
+
+
+class Preflight(BaseModel):
+    """Evidence + decision from the preflight gate; always present (M4)."""
+
+    docs_reviewed: bool = False
+    cve_refs_found: bool = False
+    trial_merge: TrialMerge
+    decision: Decision
+
+
+class Highlight(BaseModel):
+    """A notable change worth surfacing (behaviour change, deprecation, CVE fix).
+
+    ``kind`` is free-form (common values: ``behaviour_change``, ``deprecation``,
+    ``cve_fix``, ``api_change``); the discriminating fields (``area`` vs
+    ``component``/``cve``/``severity``) are optional so one model covers all
+    kinds.
+    """
+
+    kind: str
+    detail: str
+    area: str | None = None
+    component: str | None = None
+    cve: str | None = None
+    severity: str | None = None
+    upstream_ref: str | None = None
+
+
+class Dependency(BaseModel):
+    """A dependency bump, classified by ``reason`` (e.g. cve_fix vs routine_bump).
+
+    ``from`` is a Python keyword, so the field is ``from_`` with a ``from`` alias;
+    dump with ``by_alias=True`` to emit the spec's ``from``/``to`` keys.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str
+    from_: str = Field(alias="from")
+    to: str
+    reason: str
+    cve: str | None = None
+
+
+class Cve(BaseModel):
+    """Per-CVE deep analysis (analyzer, M5)."""
+
+    cve: str
+    severity: str
+    affects: str
+    detail: str
+
+
+class Conflict(BaseModel):
+    """Per-conflict deep analysis with a resolution hint (analyzer, M5)."""
+
+    path: str
+    cause: str
+    resolution_hint: str
+
+
+class Analysis(BaseModel):
+    """Deep-dive block; present only when preflight flagged the tag (M5)."""
+
+    cves: list[Cve] = Field(default_factory=list)
+    conflicts: list[Conflict] = Field(default_factory=list)
+
+
+class NewTagFinding(BaseModel):
+    """Everything the reporter needs about one new upstream tag.
+
+    Clean releases are short: ``preflight.decision == "clean"``,
+    ``trial_merge.result == "clean"``, no ``analysis`` block, one-line summary.
+    Flagged releases add ``highlights`` / ``dependencies`` / ``analysis``.
+    """
+
+    tag: str
+    risk: Risk
+    summary: str
+    preflight: Preflight
+    highlights: list[Highlight] = Field(default_factory=list)
+    dependencies: list[Dependency] = Field(default_factory=list)
+    analysis: Analysis | None = None
+    notes_for_reviewer: str | None = None
+
+
 class Finding(BaseModel):
     """Structured, per-repo finding consumed by the reporter (Milestone 3).
 
     Holds the whole :class:`RepoConfig` as ``repo`` rather than flattening a few
-    fields out of it. Downstream steps need the full config: the preflight
-    trial merge uses ``canonical_repo`` / ``canonical_branch`` / ``upstream``,
-    and the reporter derives ``tracked_version`` and ``last_merged_tag`` from
-    ``current_upstream_tag``. Per-tag structured findings and the
-    ``preflight`` / ``analysis`` blocks land in M3+.
+    fields out of it: the preflight trial merge needs ``canonical_repo`` /
+    ``canonical_branch`` / ``upstream``. ``tracked_version`` and
+    ``last_merged_tag`` are *computed* from ``repo`` (so they still appear in the
+    serialized output the reporter emits, without duplicating data that can
+    drift).
     """
 
     repo: RepoConfig
-    # Per-tag findings; enriched (risk/summary/preflight/...) from M3 onward.
-    new_tags: list[dict] = Field(default_factory=list)
+    new_tags: list[NewTagFinding] = Field(default_factory=list)
+
+    @computed_field
+    @property
+    def tracked_version(self) -> str:
+        return line_label(self.repo.current_upstream_tag)
+
+    @computed_field
+    @property
+    def last_merged_tag(self) -> str:
+        return self.repo.current_upstream_tag
 
 
 class RepoJob(BaseModel):

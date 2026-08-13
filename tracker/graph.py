@@ -25,6 +25,7 @@ from langgraph.graph import END, START, StateGraph
 from tracker.agents.analyzer import analyzer_node
 from tracker.agents.orchestrator import discover_releases_node, load_tracker_node
 from tracker.agents.preflight import preflight_node, route_after_preflight
+from tracker.assembler import assemble_finding, pending_tag_finding
 from tracker.config import load_settings
 from tracker.models import Finding, GraphState, RepoJob
 
@@ -57,15 +58,12 @@ def build_repo_subgraph():
 def run_repo_subgraph(job: RepoJob) -> Finding:
     """Run the per-repo sub-graph for ``job`` and return its assembled finding.
 
-    M2 stub: the preflight/analyzer nodes land in M4/M5, so for now we emit a
-    short shell finding (the repo config + the new tags). From M4 this invokes
-    ``build_repo_subgraph().invoke(...)`` and returns the assembled result.
+    M2 stub: the preflight/analyzer nodes land in M4/M5, so for now we assemble a
+    finding of schema-valid *pending* tag entries. From M4 this invokes
+    ``build_repo_subgraph().invoke(...)`` and assembles the real per-tag results.
     """
 
-    return Finding(
-        repo=job.repo,
-        new_tags=[{"tag": tag} for tag in job.new_tags],
-    )
+    return assemble_finding(job.repo, [pending_tag_finding(tag) for tag in job.new_tags])
 
 
 def _worker_count(n_jobs: int, configured: int | None, cpu: int | None) -> int:

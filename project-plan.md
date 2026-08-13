@@ -57,14 +57,16 @@ Bookkeeping + dispatch; keep it non-LLM and deterministic.
 
 ---
 
-#### Milestone 3 — Finding schema & assembler
+#### Milestone 3 — Finding schema & assembler ✅
 
 Shared contract between sub-graph and reporter.
 
-- [ ] Define the structured finding schema (per spec YAML): `repo`, `tracked_version`, `last_merged_tag`, `new_tags[]` with `risk`, `summary`, `preflight{}`, `highlights[]`, `dependencies[]`, optional `analysis{}`, `notes_for_reviewer`.
-- [ ] Implement thin assembler that produces one finding per repo from whichever path ran (clean vs flagged).
-- [ ] Ensure clean-release findings are short: `preflight.decision: clean`, `trial_merge.result: clean`, no `analysis` block, one-line summary.
-- [ ] Validation + round-trip tests (serialize/deserialize; reporter can consume both clean and flagged shapes).
+- [x] Define the structured finding schema (typed pydantic models in `tracker/models.py`): `Finding` holds `repo` (full `RepoConfig`) + `new_tags[]` of `NewTagFinding` (`tag`, `risk`, `summary`, `preflight{docs_reviewed, cve_refs_found, trial_merge{environment, result, conflicting_paths, output_ref}, decision}`, `highlights[]`, `dependencies[]`, optional `analysis{cves[], conflicts[]}`, `notes_for_reviewer`). `tracked_version` / `last_merged_tag` are `@computed_field`s derived from `repo.current_upstream_tag` (still serialized, never stored twice). `Dependency.from_` uses a `from` alias (Python keyword).
+- [x] Implement thin assembler (`tracker/assembler.py`): `assemble_finding(repo, new_tags)` (one finding per repo, tags sorted oldest→newest for determinism) + `clean_tag_finding(...)` which encodes the clean-is-short invariant, + `pending_tag_finding(...)` used by the M2 dispatch shell.
+- [x] Ensure clean-release findings are short: `clean_tag_finding` forces `preflight.decision: clean`, `trial_merge.result: clean`, no `analysis` block, one-line summary.
+- [x] Validation + round-trip tests (`tests/test_finding.py`): serialize/deserialize both clean and flagged shapes; computed fields present in `model_dump`; `Dependency` alias emits `from`/`to`; assembler sorts tags.
+
+> The M2 dispatch shell (`run_repo_subgraph`) now emits schema-valid **pending** tag findings via `pending_tag_finding` until the real preflight/analyzer nodes (M4/M5) produce them.
 
 ---
 

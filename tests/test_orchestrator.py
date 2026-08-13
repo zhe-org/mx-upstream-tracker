@@ -7,6 +7,7 @@ from pathlib import Path
 
 from tracker import config
 from tracker.agents import orchestrator
+from tracker.assembler import clean_tag_finding
 from tracker.finalize import finalize_run
 from tracker.graph import _worker_count, dispatch
 from tracker.models import Finding, RepoConfig, RepoJob
@@ -70,7 +71,7 @@ def test_dispatch_fans_out_one_finding_per_job():
     coredns = next(f for f in findings if f.repo.name == "coredns/coredns")
     assert coredns.repo.current_upstream_tag == "v1.14.6"
     assert coredns.repo.canonical_repo.startswith("https://github.com/canonical/")
-    assert [nt["tag"] for nt in coredns.new_tags] == ["v1.14.7"]
+    assert [nt.tag for nt in coredns.new_tags] == ["v1.14.7"]
 
 
 def test_dispatch_quiet_run_no_findings():
@@ -123,7 +124,10 @@ def test_finalize_writes_snapshot_and_bumps_registry(tmp_path: Path):
     findings = [
         Finding(
             repo=_repo("coredns/coredns", "v1.14.6"),
-            new_tags=[{"tag": "v1.14.7"}, {"tag": "v1.14.8"}],
+            new_tags=[
+                clean_tag_finding("v1.14.7", summary="bugfix"),
+                clean_tag_finding("v1.14.8", summary="bugfix"),
+            ],
         ),
     ]
 

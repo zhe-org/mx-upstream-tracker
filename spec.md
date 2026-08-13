@@ -204,7 +204,37 @@ bundle (not the full raw diff) and produces the deep analysis:
 
 Whichever path ran, the sub-graph assembles one structured finding per repo
 using the same schema the reporter already consumes, enriched with
-`preflight` and (when present) `analysis` blocks:
+`preflight` and (when present) `analysis` blocks.
+
+Everything except `repo` lives **per tag**: one repo can jump several tags,
+and each is judged on its own. `tracked_version` and `last_merged_tag` are
+derived from `repo` (the fork's `current_upstream_tag`), not stored twice.
+The overall shape:
+
+```
+Finding (one per repo)
+├─ repo                RepoConfig  (upstream, fork, branch, current_upstream_tag)
+├─ tracked_version     derived from repo.current_upstream_tag  (e.g. "1.36.x")
+├─ last_merged_tag     derived (= repo.current_upstream_tag)
+└─ new_tags[]          one entry per new upstream tag
+   ├─ tag              e.g. "v1.36.6"
+   ├─ risk             low | medium | high        (drives the reporter's ranking)
+   ├─ summary          one line
+   ├─ preflight        (always present)
+   │  ├─ docs_reviewed        bool
+   │  ├─ cve_refs_found       bool
+   │  ├─ trial_merge          {environment, result [clean|conflict|error],
+   │  │                        conflicting_paths[], output_ref}
+   │  └─ decision             clean | flagged
+   ├─ highlights[]     {kind, area|component, detail, cve?, severity?, upstream_ref?}
+   ├─ dependencies[]   {name, from, to, reason, cve?}
+   ├─ analysis         (present only when preflight flagged)
+   │  ├─ cves[]               {cve, severity, affects, detail}
+   │  └─ conflicts[]          {path, cause, resolution_hint}
+   └─ notes_for_reviewer
+```
+
+A concrete example:
 
 ```yaml
 repo: kubernetes/kubernetes

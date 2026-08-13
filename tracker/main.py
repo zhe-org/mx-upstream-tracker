@@ -26,7 +26,7 @@ def main() -> None:
         return
 
     for finding in findings:
-        tags = ", ".join(entry["tag"] for entry in finding.new_tags)
+        tags = ", ".join(entry.tag for entry in finding.new_tags)
         line = line_label(finding.repo.current_upstream_tag)
         print(f"  {finding.repo.name} ({line}): {tags}")
 
