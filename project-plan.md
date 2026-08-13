@@ -33,6 +33,8 @@ The version-controlled input that drives everything.
 
 > Also restructured the codebase into a `tracker/` package (app modules + `agents/` + `tools/`, with `llm.py` under `tools/`); imports are now absolute `tracker.*` and the entrypoint is `python -m tracker.main`.
 
+> **Per-release-set registries.** A run now targets **one** K8s release set instead of everything at once. The single `upstream-tracker.yaml` moved to `registries/upstream-tracker-<set>.yaml` (one file per set) and the state snapshot to `state/processed-<set>.json`. `python -m tracker.main <set>` takes a **required** release set in **dot form** (e.g. `1.36`); the filename uses **dash form** (`1-36`). Selection flows via a `RELEASE_SET` env var that `main` sets from the arg and every `load_settings()` reads (no signature churn across the 6 call sites that reconstruct settings from env). Explicit `TRACKER_PATH`/`STATE_PATH` still override (tests). Invalid format or an unknown set exits with a clear error listing available sets. Only the `1.36` registry exists today; others are added when their branch/tag data is known. The nightly workflow passes `1.36` for now (a matrix over `registries/` lands with M7).
+
 ---
 
 #### Milestone 2 — Orchestrator agent ✅

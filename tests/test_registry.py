@@ -1,8 +1,9 @@
 """Registry loader + validation tests (Milestone 1).
 
-Covers the seed ``upstream-tracker.yaml`` (parses cleanly into all tracked
-repos, launchpad->github fork conversion held) and the loader's failure modes
-(missing file, bad YAML, wrong shape, missing/extra fields).
+Covers the seed registry (``registries/upstream-tracker-1-36.yaml`` — parses
+cleanly into all tracked repos, launchpad->github fork conversion held) and the
+loader's failure modes (missing file, bad YAML, wrong shape, missing/extra
+fields).
 """
 
 from __future__ import annotations

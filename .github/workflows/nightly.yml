@@ -7,7 +7,7 @@ on:
   workflow_dispatch: {}  # allow manual re-trigger
 
 permissions:
-  contents: write   # to commit updated state/processed.json
+  contents: write   # to commit updated registry + state snapshot
   issues: write     # to post the report as an issue (Milestone 7)
 
 concurrency:
@@ -33,14 +33,15 @@ jobs:
         run: uv sync
 
       - name: Run tracker
-        run: uv run python -m tracker.main
+        # One release set for now; a matrix over registries/ lands with M7.
+        run: uv run python -m tracker.main 1.36
 
-      - name: Persist processed-tag state
+      - name: Persist registry + processed-tag state
         run: |
-          if [[ -n "$(git status --porcelain state/)" ]]; then
+          if [[ -n "$(git status --porcelain registries/ state/)" ]]; then
             git config user.name "release-tracker-bot"
             git config user.email "release-tracker-bot@users.noreply.github.com"
-            git add state/
-            git commit -m "chore: update processed-tag state [skip ci]"
+            git add registries/ state/
+            git commit -m "chore: update tracker registry + processed state [skip ci]"
             git push
           fi

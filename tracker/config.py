@@ -19,10 +19,38 @@ load_dotenv()
 # Repository root (this file lives at tracker/config.py, so go up two levels).
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
-# Default on-disk locations.
-DEFAULT_TRACKER_PATH = ROOT_DIR / "upstream-tracker.yaml"
-DEFAULT_STATE_PATH = ROOT_DIR / "state" / "processed.json"
+# Per-release-set inputs/outputs. A single run targets one K8s release set (e.g.
+# "1.36"): its registry lives at ``registries/upstream-tracker-1-36.yaml`` and
+# its processed-tag snapshot at ``state/processed-1-36.json``. The release set is
+# chosen by the CLI argument (``python -m tracker.main 1.36``), which sets the
+# ``RELEASE_SET`` env var that every ``load_settings()`` call then reads.
+REGISTRIES_DIR = ROOT_DIR / "registries"
+STATE_DIR = ROOT_DIR / "state"
 DEFAULT_ARTIFACT_DIR = ROOT_DIR / "artifacts"
+
+# Fallback release set when ``RELEASE_SET`` is unset (real runs always set it via
+# the CLI arg; this keeps internal/test ``load_settings()`` calls sane).
+DEFAULT_RELEASE_SET = "1.36"
+
+
+def slug_for(release_set: str) -> str:
+    """Filename slug for a release set: dot form in, dash form out (``1.36`` -> ``1-36``)."""
+    return release_set.replace(".", "-")
+
+
+def registry_path_for(release_set: str) -> Path:
+    """Registry path for ``release_set`` (dot form), e.g. ``upstream-tracker-1-36.yaml``."""
+    return REGISTRIES_DIR / f"upstream-tracker-{slug_for(release_set)}.yaml"
+
+
+def state_path_for(release_set: str) -> Path:
+    """Processed-tag snapshot path for ``release_set``, e.g. ``state/processed-1-36.json``."""
+    return STATE_DIR / f"processed-{slug_for(release_set)}.json"
+
+
+# Default on-disk locations (for the fallback release set).
+DEFAULT_TRACKER_PATH = registry_path_for(DEFAULT_RELEASE_SET)
+DEFAULT_STATE_PATH = state_path_for(DEFAULT_RELEASE_SET)
 
 
 @dataclass(frozen=True)
@@ -56,15 +84,24 @@ class Settings:
 
 
 def load_settings() -> Settings:
-    """Build :class:`Settings` from the current environment."""
+    """Build :class:`Settings` from the current environment.
+
+    The tracker/state paths are derived from the ``RELEASE_SET`` env var (dot
+    form, e.g. ``1.36``), which ``main`` sets from the CLI argument. Explicit
+    ``TRACKER_PATH`` / ``STATE_PATH`` still override (used by tests).
+    """
+
+    release_set = os.getenv("RELEASE_SET", DEFAULT_RELEASE_SET)
+    tracker_default = registry_path_for(release_set)
+    state_default = state_path_for(release_set)
 
     return Settings(
         gh_token=os.getenv("GH_TOKEN"),
         llm_base_url=os.getenv("LLM_BASE_URL", "https://api.githubcopilot.com"),
         llm_model=os.getenv("LLM_MODEL", "gemini-2.5-pro"),
         llm_temperature=float(os.getenv("LLM_TEMPERATURE", "0.0")),
-        tracker_path=Path(os.getenv("TRACKER_PATH", str(DEFAULT_TRACKER_PATH))),
-        state_path=Path(os.getenv("STATE_PATH", str(DEFAULT_STATE_PATH))),
+        tracker_path=Path(os.getenv("TRACKER_PATH", str(tracker_default))),
+        state_path=Path(os.getenv("STATE_PATH", str(state_default))),
         artifact_dir=Path(os.getenv("ARTIFACT_DIR", str(DEFAULT_ARTIFACT_DIR))),
         dispatch_max_workers=_optional_int(os.getenv("DISPATCH_MAX_WORKERS")),
     )

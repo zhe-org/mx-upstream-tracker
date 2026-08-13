@@ -21,18 +21,22 @@ Obsidian vault (`tasks/upstream-release-tracker-plan.md`).
 ```
 tracker/               # application package
   config.py            # settings + secrets (env-driven)
-  state.py             # processed-tag persistence (state/processed.json)
+  state.py             # processed-tag persistence (state/processed-<set>.json)
   models.py            # RepoConfig / Finding / GraphState schemas
-  registry.py          # upstream-tracker.yaml loader + validation
+  registry.py          # registries/upstream-tracker-<set>.yaml loader + validation
   graph.py             # LangGraph wiring (orchestrator + repo sub-graph)
-  main.py              # CLI entrypoint (single tracker pass)
+  main.py              # CLI entrypoint (single tracker pass; takes a release set)
   agents/              # orchestrator, preflight, analyzer, reporter nodes
   tools/               # llm, github, git_ops, cve integrations
-upstream-tracker.yaml  # tracked-repo registry (the workflow's input)
-state/                 # processed-tag state (processed.json)
+registries/            # one upstream-tracker-<set>.yaml per K8s release set (the input)
+state/                 # per-set processed-tag snapshots (processed-<set>.json)
 tests/                 # skeleton + registry tests
 .github/workflows/     # ci.yml (lint+test) + nightly.yml (scheduled run)
 ```
+
+A run targets one **release set** (a K8s minor line), passed in dot form:
+`python -m tracker.main 1.36` loads `registries/upstream-tracker-1-36.yaml` and
+writes `state/processed-1-36.json`.
 
 ## Getting started
 
@@ -42,7 +46,7 @@ cp .env.example .env         # then set GH_TOKEN
 
 uv run ruff check .          # lint
 uv run pytest                # tests
-uv run python -m tracker.main   # build the graph (skeleton pass)
+uv run python -m tracker.main 1.36   # run the tracker for release set 1.36
 ```
 
 ## Status

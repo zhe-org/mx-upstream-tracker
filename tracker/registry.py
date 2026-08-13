@@ -1,9 +1,10 @@
 """Upstream-tracker registry loader + validation (Milestone 1).
 
-The registry (``upstream-tracker.yaml``) is the version-controlled input that
-drives the whole tracker: it lists, per repo, the upstream we watch, our
-Canonical fork, its release branch, and the newest upstream tag our fork
-currently sits on (``current_upstream_tag``). This module loads that file,
+The registry (one ``registries/upstream-tracker-<set>.yaml`` per K8s release
+set) is the version-controlled input that drives the whole tracker: it lists,
+per repo, the upstream we watch, our Canonical fork, its release branch, and the
+newest upstream tag our fork currently sits on (``current_upstream_tag``). The
+release set is selected by the CLI argument. This module loads that file,
 validates it against :class:`models.RepoConfig`, and fails loudly with
 actionable errors so a malformed registry never silently produces an empty or
 wrong run. It can also write the registry back (finalize step) with the
@@ -39,7 +40,7 @@ def load_registry(path: str | Path) -> list[RepoConfig]:
     if not path.exists():
         raise RegistryError(
             f"Registry file not found: {path}. Create it (see "
-            "upstream-tracker.yaml) or set TRACKER_PATH."
+            "registries/upstream-tracker-1-36.yaml) or select a valid release set."
         )
 
     try:

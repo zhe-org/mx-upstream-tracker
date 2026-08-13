@@ -2,17 +2,17 @@
 
 Runs once, after the whole job has finished successfully. It:
 
-  1. Writes the processed-tag **snapshot** (``processed.json``) — a record of
-     what this run reported.
-  2. Advances ``current_upstream_tag`` in ``upstream-tracker.yaml`` to the
-     newest reported tag per repo, so the next nightly run starts from the
-     advanced baseline (encoding the "we'll merge it before the next upstream
-     tag lands" assumption).
+  1. Writes the processed-tag **snapshot** (``state/processed-<set>.json``) — a
+     record of what this run reported.
+  2. Advances ``current_upstream_tag`` in the selected release-set registry
+     (``registries/upstream-tracker-<set>.yaml``) to the newest reported tag per
+     repo, so the next nightly run starts from the advanced baseline (encoding
+     the "we'll merge it before the next upstream tag lands" assumption).
 
 Keeping this out of the graph (a post-run step) means that in M7 it naturally
 becomes "finalize only after successful delivery": we never advance the pointer
 for a report that failed to go out. A nightly job (M7) must commit the updated
-``upstream-tracker.yaml`` + ``processed.json`` back to the repo.
+registry + state snapshot back to the repo.
 """
 
 from __future__ import annotations
