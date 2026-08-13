@@ -25,9 +25,9 @@ from langgraph.graph import END, START, StateGraph
 from tracker.agents.analyzer import analyzer_node
 from tracker.agents.orchestrator import discover_releases_node, load_tracker_node
 from tracker.agents.preflight import preflight_node, route_after_preflight
-from tracker.assembler import assemble_finding, pending_tag_finding
+from tracker.assembler import assemble_finding
 from tracker.config import load_settings
-from tracker.models import Finding, GraphState, RepoJob
+from tracker.models import Finding, GraphState, RepoJob, SubgraphState
 
 
 def run_orchestrator() -> GraphState:
@@ -40,8 +40,8 @@ def run_orchestrator() -> GraphState:
 
 
 def build_repo_subgraph():
-    """Per-repo sub-graph: preflight gates the (conditional) analyzer."""
-    sub = StateGraph(GraphState)
+    """Per-repo sub-graph (invoked once per tag): preflight gates the analyzer."""
+    sub = StateGraph(SubgraphState)
     sub.add_node("preflight", preflight_node)
     sub.add_node("analyzer", analyzer_node)
 
@@ -55,15 +55,22 @@ def build_repo_subgraph():
     return sub.compile()
 
 
-def run_repo_subgraph(job: RepoJob) -> Finding:
-    """Run the per-repo sub-graph for ``job`` and return its assembled finding.
+# Compile once and reuse across tags/repos (the graph is stateless per invoke).
+_REPO_SUBGRAPH = build_repo_subgraph()
 
-    M2 stub: the preflight/analyzer nodes land in M4/M5, so for now we assemble a
-    finding of schema-valid *pending* tag entries. From M4 this invokes
-    ``build_repo_subgraph().invoke(...)`` and assembles the real per-tag results.
+
+def run_repo_subgraph(job: RepoJob) -> Finding:
+    """Run the per-repo sub-graph for each of ``job``'s tags and assemble one finding.
+
+    The sub-graph is invoked once per tag (each tag is judged on its own); the
+    resulting per-tag findings are assembled into a single repo finding
+    (tags sorted oldest → newest by the assembler).
     """
 
-    return assemble_finding(job.repo, [pending_tag_finding(tag) for tag in job.new_tags])
+    tag_findings = [
+        _REPO_SUBGRAPH.invoke({"repo": job.repo, "tag": tag})["tag_finding"] for tag in job.new_tags
+    ]
+    return assemble_finding(job.repo, tag_findings)
 
 
 def _worker_count(n_jobs: int, configured: int | None, cpu: int | None) -> int:

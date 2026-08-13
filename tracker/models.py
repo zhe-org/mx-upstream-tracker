@@ -194,3 +194,16 @@ class GraphState(TypedDict, total=False):
     report_markdown: str
     report_json: str
     tldr: str
+
+
+class SubgraphState(TypedDict, total=False):
+    """State threaded through the per-repo sub-graph, one tag at a time (M4).
+
+    The sub-graph is invoked once per new tag: ``preflight_node`` reads
+    ``repo`` + ``tag`` and writes the assembled ``tag_finding``; the analyzer
+    (M5) enriches it in place when preflight flagged the tag.
+    """
+
+    repo: RepoConfig
+    tag: str
+    tag_finding: NewTagFinding

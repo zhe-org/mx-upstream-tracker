@@ -6,12 +6,21 @@ from dataclasses import replace
 from pathlib import Path
 
 from tracker import config
-from tracker.agents import orchestrator
+from tracker.agents import orchestrator, preflight
 from tracker.assembler import clean_tag_finding
 from tracker.finalize import finalize_run
-from tracker.graph import _worker_count, dispatch
+from tracker.graph import _worker_count, dispatch, run_repo_subgraph
 from tracker.models import Finding, RepoConfig, RepoJob
 from tracker.registry import load_registry
+
+
+def _fake_preflight(monkeypatch, summary: str = "ok") -> None:
+    """Stub the preflight gate so dispatch/subgraph tests stay offline."""
+    monkeypatch.setattr(
+        preflight,
+        "assess_tag",
+        lambda repo, tag, **kw: clean_tag_finding(tag, summary=summary),
+    )
 
 
 def _repo(name: str, tag: str) -> RepoConfig:
@@ -60,7 +69,8 @@ def test_discover_quiet_run(monkeypatch):
 # --- dispatch ------------------------------------------------------------
 
 
-def test_dispatch_fans_out_one_finding_per_job():
+def test_dispatch_fans_out_one_finding_per_job(monkeypatch):
+    _fake_preflight(monkeypatch)
     jobs = [
         RepoJob(repo=_repo("coredns/coredns", "v1.14.6"), new_tags=["v1.14.7"]),
         RepoJob(repo=_repo("etcd-io/etcd", "v3.6.13"), new_tags=["v3.6.14", "v3.6.15"]),
@@ -74,11 +84,24 @@ def test_dispatch_fans_out_one_finding_per_job():
     assert [nt.tag for nt in coredns.new_tags] == ["v1.14.7"]
 
 
+def test_run_repo_subgraph_assembles_per_tag_from_preflight(monkeypatch):
+    # The sub-graph runs preflight per tag; the assembled finding must reflect
+    # the preflight output (not the old pending placeholder).
+    _fake_preflight(monkeypatch, summary="from-preflight")
+    job = RepoJob(repo=_repo("coredns/coredns", "v1.14.6"), new_tags=["v1.14.8", "v1.14.7"])
+
+    finding = run_repo_subgraph(job)
+    # Tags come back sorted oldest -> newest, each carrying the preflight summary.
+    assert [nt.tag for nt in finding.new_tags] == ["v1.14.7", "v1.14.8"]
+    assert all(nt.summary == "from-preflight" for nt in finding.new_tags)
+
+
 def test_dispatch_quiet_run_no_findings():
     assert dispatch({"jobs": []})["findings"] == []
 
 
 def test_dispatch_parallel_preserves_order(monkeypatch):
+    _fake_preflight(monkeypatch)
     # Force the parallel path (>1 worker) regardless of the machine's core count;
     # results must come back in input order despite arbitrary completion order.
     monkeypatch.setattr(

@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from tracker.assembler import assemble_finding, clean_tag_finding, pending_tag_finding
+from tracker.assembler import (
+    assemble_finding,
+    clean_tag_finding,
+    flagged_preflight_finding,
+    pending_tag_finding,
+)
 from tracker.models import (
     Analysis,
     Conflict,
@@ -158,3 +163,18 @@ def test_pending_tag_finding_is_valid_and_labelled():
     assert entry.tag == "v1.14.7"
     assert "Pending" in entry.summary
     assert entry.preflight.decision == "clean"
+
+
+def test_flagged_preflight_finding_shape():
+    entry = flagged_preflight_finding(
+        "v1.14.7",
+        risk="medium",
+        summary="Trial merge conflicts in 1 file(s).",
+        trial_merge=TrialMerge(result="conflict", conflicting_paths=["a.go"]),
+    )
+    assert entry.risk == "medium"
+    assert entry.preflight.decision == "flagged"
+    assert entry.preflight.cve_refs_found is False
+    assert entry.preflight.trial_merge.result == "conflict"
+    # Deep analysis is the analyzer's job (M5); preflight never fills it.
+    assert entry.analysis is None

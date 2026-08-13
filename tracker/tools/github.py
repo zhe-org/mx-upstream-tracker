@@ -7,7 +7,7 @@ repos are readable unauthenticated, but a token raises the rate limit).
 
 from __future__ import annotations
 
-from github import Auth, Github
+from github import Auth, Github, GithubException
 
 from tracker.config import load_settings
 
@@ -36,10 +36,33 @@ def list_tags(repo: str) -> list[str]:
 
 
 def get_release_notes(repo: str, tag: str) -> str:
-    """Return the upstream release notes body for ``tag``."""
-    raise NotImplementedError("Milestone 4: fetch release notes")
+    """Return the upstream release-notes body for ``tag`` (``""`` if none).
+
+    Many tags have no GitHub *release* attached (only a git tag); that is not an
+    error for the preflight gate, so a missing release degrades to an empty
+    string rather than raising.
+    """
+
+    client = _client()
+    try:
+        release = client.get_repo(repo).get_release(tag)
+    except GithubException:
+        return ""
+    finally:
+        client.close()
+    return release.body or ""
 
 
 def compare_tags(repo: str, base: str, head: str) -> dict:
-    """Return the commit log / changed files between two tags."""
-    raise NotImplementedError("Milestone 4: tag-to-tag comparison")
+    """Summarise the ``base..head`` range: commit count, messages, changed files."""
+
+    client = _client()
+    try:
+        comparison = client.get_repo(repo).compare(base, head)
+        return {
+            "total_commits": comparison.total_commits,
+            "commit_messages": [c.commit.message for c in comparison.commits],
+            "files": [f.filename for f in comparison.files],
+        }
+    finally:
+        client.close()

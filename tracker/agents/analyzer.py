@@ -12,9 +12,15 @@ Skeleton; node logic lands in Milestone 5.
 
 from __future__ import annotations
 
-from tracker.models import GraphState
+from tracker.models import SubgraphState
 
 
-def analyzer_node(state: GraphState) -> GraphState:
-    """Produce the ``analysis`` block from the handoff bundle."""
-    raise NotImplementedError("Milestone 5: deep analysis of flagged bundle")
+def analyzer_node(state: SubgraphState) -> SubgraphState:
+    """Deep-dive on a flagged tag and enrich its ``analysis`` block.
+
+    M4 passthrough: preflight already produced a complete (analysis-free)
+    flagged finding, so for now the analyzer is a no-op that leaves the finding
+    unchanged. Milestone 5 replaces this body with the real CVE / conflict /
+    behaviour-change analysis.
+    """
+    return {}

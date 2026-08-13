@@ -72,17 +72,23 @@ Shared contract between sub-graph and reporter.
 
 ---
 
-#### Milestone 4 — Preflight check agent (the gate)
+#### Milestone 4 — Preflight check agent (the gate) ✅
 
-Runs on every new tag; decides clean vs flagged.
+Runs on every new tag; decides clean vs flagged. **v1 decision is deterministic and merge-driven** (LLM judgement + CVE scan deferred — see notes).
 
-- [ ] Fetch upstream release notes / docs diff for the new tag(s).
-- [ ] Inspect tag metadata + tag-to-tag commit log vs our last merged tag.
-- [ ] CVE scan across release notes, commit messages, and dependency manifest changes (`go.mod`, vendor).
-- [ ] Trial merge in a **throwaway temp workspace on the runner**: clone the fork branch into a temp dir, attempt to merge the new upstream tag, capture output (conflicting files, failed patch applies, build breakage). Merge need not succeed. (No LXD — the GitHub Actions runner is already an isolated, ephemeral environment.)
-- [ ] Clean up the temp workspace afterwards; the real fork is never touched (we only ever work on a throwaway local clone); stash the captured merge log as an artifact.
-- [ ] Decision logic: emit "all clear" finding directly when no CVEs / no notable changes / clean merge; otherwise build a **handoff bundle** (flagged items + evidence: diff hunks, CVE ids, merge output) for the analyzer.
-- [ ] Tests: clean path emits short finding & never invokes analyzer; flagged path produces correct handoff bundle. Mock git + GitHub in tests.
+- [x] Fetch upstream release notes / docs diff for the new tag(s) (`tracker/tools/github.py::get_release_notes`, empty string when a tag has no GitHub release).
+- [x] Inspect tag metadata + tag-to-tag commit log vs our last merged tag (`github.py::compare_tags` → `{total_commits, commit_messages, files}`).
+- [ ] ~~CVE scan across release notes, commit messages, and dependency manifest changes~~ — **deferred** (descoped by request; lands with the analyzer/CVE work, M5/M8). `preflight.cve_refs_found` is always `False` in M4.
+- [x] Trial merge in a **throwaway temp workspace on the runner** (`tracker/tools/git_ops.py`): `clone_fork` (single-branch, non-shallow so the merge-base is meaningful) → `trial_merge` (add upstream remote, fetch the tag, `git merge --no-commit --no-ff`, classify `clean|conflict|error` off git's `CONFLICT` marker, list unmerged paths via `--diff-filter=U`, `merge --abort`). Never raises on conflict.
+- [x] Clean up the temp workspace afterwards (`trial_merge_fork` manages a `mkdtemp` workspace and `rmtree`s it in a `finally`); the real fork is never touched; the captured merge log is written to `artifact_dir` and referenced via `TrialMerge.output_ref`.
+- [x] Decision logic (`tracker/agents/preflight.py::assess_tag`): clean merge → short all-clear finding (`clean_tag_finding`, risk low); conflict → flagged/medium; git error → flagged/high (`flagged_preflight_finding`, `analysis` left `None` for the analyzer). Evidence (notes/compare) feeds the summary, not the decision.
+- [x] Tests (all offline; mock `subprocess` / GitHub / `trial_merge_fork`): `tests/test_git_ops.py` (classifier + cleanup + no-raise), `tests/test_github_tool.py` (notes/compare), `tests/test_preflight.py` (clean-short, conflict-medium, error-high, routing), plus `tests/test_finding.py::test_flagged_preflight_finding_shape` and the sub-graph fan-out test in `tests/test_orchestrator.py`.
+
+> **Sub-graph now runs for real.** The per-repo sub-graph is invoked **once per tag** on a new `SubgraphState` (`repo`, `tag`, `tag_finding`); `graph.run_repo_subgraph` collects the per-tag findings and assembles one repo finding. Compiled once and reused. `preflight_node`/`route_after_preflight` implement the gate; `route` sends `flagged → analyzer`, `clean → assemble(END)`.
+
+> **Analyzer is an M4 passthrough.** `analyzer_node` operates on `SubgraphState` but is a no-op for now (preflight already emits a complete, analysis-free flagged finding); M5 replaces its body with the real CVE / conflict / behaviour-change analysis. This keeps the conditional routing live and tested today.
+
+> **Deferred from the spec's preflight:** the LLM behaviour-change/deprecation judgement and the CVE scan. M4 flags purely on trial-merge outcome, which is cheap, deterministic, and fully offline-testable; the richer judgement arrives with the analyzer (M5) and CVE enrichment (M8).
 
 ---
 

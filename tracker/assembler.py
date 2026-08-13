@@ -82,3 +82,37 @@ def pending_tag_finding(tag: str) -> NewTagFinding:
     """
 
     return clean_tag_finding(tag, summary="Pending preflight analysis (Milestone 4).")
+
+
+def flagged_preflight_finding(
+    tag: str,
+    *,
+    risk: Risk,
+    summary: str,
+    trial_merge: TrialMerge,
+    docs_reviewed: bool = True,
+    highlights: list[Highlight] | None = None,
+    dependencies: list[Dependency] | None = None,
+    notes_for_reviewer: str | None = None,
+) -> NewTagFinding:
+    """A flagged-path entry from the preflight gate (M4): ``decision == flagged``.
+
+    Deep analysis (``analysis``) is left ``None`` — that is the analyzer's job
+    (M5). CVEs are out of scope for M4, so ``cve_refs_found`` is always ``False``.
+    """
+
+    return NewTagFinding(
+        tag=tag,
+        risk=risk,
+        summary=summary,
+        preflight=Preflight(
+            docs_reviewed=docs_reviewed,
+            cve_refs_found=False,
+            trial_merge=trial_merge,
+            decision="flagged",
+        ),
+        highlights=highlights or [],
+        dependencies=dependencies or [],
+        analysis=None,
+        notes_for_reviewer=notes_for_reviewer,
+    )
