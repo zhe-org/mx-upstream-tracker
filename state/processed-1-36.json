@@ -1,5 +1,8 @@
 {
   "processed": {
+    "containerd/containerd": [
+      "v2.3.4"
+    ],
     "etcd-io/etcd": [
       "v3.6.14"
     ],

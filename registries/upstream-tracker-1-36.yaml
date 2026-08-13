@@ -9,7 +9,7 @@ repos:
     upstream: https://github.com/containerd/containerd
     canonical_repo: https://github.com/canonical/mx-containerd
     canonical_branch: canonical/2.3-26.04/stable
-    current_upstream_tag: v2.3.3
+    current_upstream_tag: v2.3.4
 
   - name: opencontainers/runc
     upstream: https://github.com/opencontainers/runc
@@ -27,7 +27,7 @@ repos:
     upstream: https://github.com/etcd-io/etcd
     canonical_repo: https://github.com/canonical/mx-etcd
     canonical_branch: canonical/3.6-26.04/stable
-    current_upstream_tag: v3.6.13
+    current_upstream_tag: v3.6.14
 
   - name: golang/go
     upstream: https://github.com/golang/go
@@ -39,7 +39,7 @@ repos:
     upstream: https://github.com/kubernetes/autoscaler
     canonical_repo: https://github.com/canonical/mx-k8s-autoscaler
     canonical_branch: canonical/1.36-26.04/stable
-    current_upstream_tag: cluster-autoscaler-1.36.0
+    current_upstream_tag: cluster-autoscaler-1.36.1
 
   - name: kubernetes-csi/external-attacher
     upstream: https://github.com/kubernetes-csi/external-attacher
@@ -51,7 +51,7 @@ repos:
     upstream: https://github.com/kubernetes-csi/external-provisioner
     canonical_repo: https://github.com/canonical/mx-k8s-csi-external-provisioner
     canonical_branch: canonical/6.2-26.04/stable
-    current_upstream_tag: v6.2.0
+    current_upstream_tag: v6.2.1
 
   - name: kubernetes-csi/external-resizer
     upstream: https://github.com/kubernetes-csi/external-resizer
@@ -87,4 +87,4 @@ repos:
     upstream: https://github.com/kubernetes/kubernetes
     canonical_repo: https://github.com/canonical/mx-kubernetes
     canonical_branch: canonical/1.36-26.04/stable
-    current_upstream_tag: v1.36.2
+    current_upstream_tag: v1.36.3
