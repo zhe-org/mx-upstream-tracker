@@ -38,7 +38,7 @@ repos:
   - name: kubernetes/autoscaler
     upstream: https://github.com/kubernetes/autoscaler
     canonical_repo: https://github.com/canonical/mx-k8s-autoscaler
-    canonical_branch: canonical/20260701-26.04/stable
+    canonical_branch: canonical/1.36-26.04/stable
     current_upstream_tag: cluster-autoscaler-1.36.0
 
   - name: kubernetes-csi/external-attacher
