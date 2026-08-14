@@ -1,19 +1,7 @@
 {
   "processed": {
-    "containerd/containerd": [
-      "v2.3.4"
-    ],
-    "etcd-io/etcd": [
-      "v3.6.14"
-    ],
-    "kubernetes-csi/external-provisioner": [
-      "v6.2.1"
-    ],
-    "kubernetes/autoscaler": [
-      "cluster-autoscaler-1.36.1"
-    ],
-    "kubernetes/kubernetes": [
-      "v1.36.3"
+    "golang/go": [
+      "go1.26.6"
     ]
   }
 }
