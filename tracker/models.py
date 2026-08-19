@@ -130,6 +130,40 @@ class Analysis(BaseModel):
     conflicts: list[Conflict] = Field(default_factory=list)
 
 
+class EvidenceBundle(BaseModel):
+    """Handoff bundle preflight builds for the analyzer (spec: "handoff bundle").
+
+    Carries the evidence the analyzer reasons over — release notes, the
+    tag-to-tag commit log, changed files, detected CVE references, and the trial
+    merge's captured output + conflict hunks. Only assembled when preflight
+    flags a tag; the analyzer never re-fetches from GitHub.
+    """
+
+    release_notes: str = ""
+    commit_messages: list[str] = Field(default_factory=list)
+    changed_files: list[str] = Field(default_factory=list)
+    cve_refs: list[str] = Field(default_factory=list)
+    trial_merge_output: str = ""
+    conflict_hunks: str = ""
+
+
+class AnalyzerOutput(BaseModel):
+    """Structured LLM result the analyzer merges into a flagged finding (M5).
+
+    Reuses the finding's own sub-models so the analyzer's output maps straight
+    onto ``highlights`` / ``dependencies`` / ``analysis`` / ``notes_for_reviewer``.
+    ``risk`` is the analyzer's assessment; the node takes the max of it and the
+    preflight risk (the analyzer may escalate but never downgrade).
+    """
+
+    risk: Risk = "medium"
+    highlights: list[Highlight] = Field(default_factory=list)
+    dependencies: list[Dependency] = Field(default_factory=list)
+    cves: list[Cve] = Field(default_factory=list)
+    conflicts: list[Conflict] = Field(default_factory=list)
+    notes_for_reviewer: str | None = None
+
+
 class NewTagFinding(BaseModel):
     """Everything the reporter needs about one new upstream tag.
 
@@ -207,3 +241,4 @@ class SubgraphState(TypedDict, total=False):
     repo: RepoConfig
     tag: str
     tag_finding: NewTagFinding
+    evidence: EvidenceBundle

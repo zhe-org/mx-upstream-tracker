@@ -178,3 +178,42 @@ def test_flagged_preflight_finding_shape():
     assert entry.preflight.trial_merge.result == "conflict"
     # Deep analysis is the analyzer's job (M5); preflight never fills it.
     assert entry.analysis is None
+
+
+def test_evidence_bundle_defaults_empty():
+    from tracker.models import EvidenceBundle
+
+    bundle = EvidenceBundle()
+    assert bundle.release_notes == ""
+    assert bundle.commit_messages == []
+    assert bundle.changed_files == []
+    assert bundle.cve_refs == []
+    assert bundle.trial_merge_output == ""
+    assert bundle.conflict_hunks == ""
+
+
+def test_analyzer_output_composes_finding_parts():
+    from tracker.models import AnalyzerOutput
+
+    out = AnalyzerOutput(
+        risk="high",
+        cves=[Cve(cve="CVE-2026-1", severity="high", affects="apiserver", detail="d")],
+        conflicts=[Conflict(path="a.go", cause="c", resolution_hint="h")],
+        notes_for_reviewer="check patches",
+    )
+    assert out.risk == "high"
+    assert out.highlights == []
+    assert out.dependencies == []
+    assert out.cves[0].cve == "CVE-2026-1"
+    assert out.conflicts[0].path == "a.go"
+    assert out.notes_for_reviewer == "check patches"
+
+
+def test_analyzer_output_defaults():
+    from tracker.models import AnalyzerOutput
+
+    out = AnalyzerOutput()
+    assert out.risk == "medium"
+    assert out.cves == []
+    assert out.conflicts == []
+    assert out.notes_for_reviewer is None
