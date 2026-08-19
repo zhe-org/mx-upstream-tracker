@@ -86,7 +86,8 @@ def trial_merge(dest: str, upstream_url: str, tag: str) -> dict:
     """Attempt merging upstream ``tag`` into the clone at ``dest``.
 
     Returns ``{result, conflicting_paths, output}`` where ``result`` is one of
-    ``clean | conflict | error``. Never raises on a merge conflict.
+    ``clean | conflict | error``, plus ``conflict_hunks`` (the captured conflict
+    markers on a conflicting merge, else empty). Never raises on a merge conflict.
     """
 
     log: list[str] = []
@@ -106,6 +107,7 @@ def trial_merge(dest: str, upstream_url: str, tag: str) -> dict:
     merge = _git(dest, "merge", "--no-commit", "--no-ff", tag)
     _record(f"git merge {tag}", merge)
 
+    hunks = ""
     if merge.returncode == 0:
         result = "clean"
         conflicts: list[str] = []
@@ -115,6 +117,9 @@ def trial_merge(dest: str, upstream_url: str, tag: str) -> dict:
         # marker is some other git failure (treated as error below).
         result = "conflict"
         conflicts = _conflicting_paths(dest)
+        # Capture the conflict markers (<<<<<<< / >>>>>>>) for the analyzer's
+        # handoff bundle, before the merge is aborted below.
+        hunks = _git(dest, "diff").stdout
     else:
         result = "error"
         conflicts = []
@@ -122,7 +127,12 @@ def trial_merge(dest: str, upstream_url: str, tag: str) -> dict:
     # Best-effort: undo the in-progress merge so the workspace is inert.
     _git(dest, "merge", "--abort")
 
-    return {"result": result, "conflicting_paths": conflicts, "output": "\n".join(log)}
+    return {
+        "result": result,
+        "conflicting_paths": conflicts,
+        "output": "\n".join(log),
+        "conflict_hunks": hunks,
+    }
 
 
 def trial_merge_fork(
@@ -140,8 +150,10 @@ def trial_merge_fork(
     ``artifact_dir`` is given, the captured merge log is written there and its
     path returned as ``output_ref``.
 
-    Returns ``{result, conflicting_paths, output_ref}`` — the shape the preflight
-    gate feeds into :class:`~tracker.models.TrialMerge`.
+    Returns ``{result, conflicting_paths, output_ref, output, conflict_hunks}`` —
+    the trial-merge fields the preflight gate feeds into
+    :class:`~tracker.models.TrialMerge` (``output``/``conflict_hunks`` flow on
+    into the analyzer's evidence bundle).
     """
 
     if token is None:
@@ -156,6 +168,7 @@ def trial_merge_fork(
             "result": "error",
             "conflicting_paths": [],
             "output": f"trial merge setup failed: {_scrub(str(exc), token)}",
+            "conflict_hunks": "",
         }
     finally:
         shutil.rmtree(workspace, ignore_errors=True)
@@ -165,6 +178,8 @@ def trial_merge_fork(
         "result": merge["result"],
         "conflicting_paths": merge["conflicting_paths"],
         "output_ref": output_ref,
+        "output": merge.get("output", ""),
+        "conflict_hunks": merge.get("conflict_hunks", ""),
     }
 
 

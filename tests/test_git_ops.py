@@ -78,8 +78,40 @@ def test_trial_merge_conflict_lists_paths(monkeypatch, tmp_path: Path):
     ]
 
 
+def test_trial_merge_captures_conflict_hunks(monkeypatch, tmp_path: Path):
+    # Two distinct `git diff` invocations: --name-only (paths) vs plain (hunks).
+    # Use an arg-aware _git fake so each returns something different.
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(dest, *args):
+        calls.append(args)
+        if args[:1] == ("merge",) and "--abort" not in args:
+            return _fail(out="CONFLICT (content): Merge conflict in a.go")
+        if args[:2] == ("diff", "--name-only"):
+            return _ok(out="a.go\n")
+        if args[:1] == ("diff",):
+            return _ok(out="<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> v1\n")
+        return _ok()
+
+    monkeypatch.setattr(git_ops, "_git", fake_git)
+
+    result = git_ops.trial_merge(str(tmp_path), "https://u", "v1")
+    assert result["result"] == "conflict"
+    assert result["conflicting_paths"] == ["a.go"]
+    assert "<<<<<<<" in result["conflict_hunks"]
+    # The in-progress merge is still aborted so the workspace is left inert.
+    assert ("merge", "--abort") in calls
+
+
+def test_trial_merge_no_hunks_when_clean(monkeypatch, tmp_path: Path):
+    fake = _FakeGit({"merge": _ok(out="Merge made by the 'ort' strategy.")})
+    monkeypatch.setattr(git_ops.subprocess, "run", fake)
+
+    result = git_ops.trial_merge(str(tmp_path), "https://u", "v1.14.7")
+    assert result["conflict_hunks"] == ""
+
+
 def test_trial_merge_error_when_fetch_fails(monkeypatch, tmp_path: Path):
-    # A non-merge git failure (e.g. the tag fetch) is 'error', not 'conflict'.
     fake = _FakeGit({"fetch": _fail(err="fatal: couldn't find remote ref v9.9.9")})
     monkeypatch.setattr(git_ops.subprocess, "run", fake)
 
@@ -111,6 +143,30 @@ def test_trial_merge_fork_cleans_up_workspace(monkeypatch, tmp_path: Path):
     assert result["result"] == "clean"
     # The throwaway workspace must be gone afterwards.
     assert created and not Path(created[0]).exists()
+
+
+def test_trial_merge_fork_propagates_output_and_hunks(monkeypatch, tmp_path: Path):
+    def fake_mkdtemp(*a, **k):
+        d = tmp_path / "ws"
+        d.mkdir()
+        return str(d)
+
+    monkeypatch.setattr(git_ops.tempfile, "mkdtemp", fake_mkdtemp)
+    monkeypatch.setattr(git_ops, "clone_fork", lambda *a, **k: None)
+    monkeypatch.setattr(
+        git_ops,
+        "trial_merge",
+        lambda *a, **k: {
+            "result": "conflict",
+            "conflicting_paths": ["a.go"],
+            "output": "merge log",
+            "conflict_hunks": "<<<<<<<",
+        },
+    )
+
+    result = git_ops.trial_merge_fork(_repo(), "v1.14.7", token="t")
+    assert result["output"] == "merge log"
+    assert result["conflict_hunks"] == "<<<<<<<"
 
 
 def test_trial_merge_fork_error_when_clone_fails(monkeypatch, tmp_path: Path):
