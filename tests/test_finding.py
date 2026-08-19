@@ -180,6 +180,18 @@ def test_flagged_preflight_finding_shape():
     assert entry.analysis is None
 
 
+def test_flagged_preflight_finding_carries_cve_flag():
+    entry = flagged_preflight_finding(
+        "v1.14.7",
+        risk="medium",
+        summary="Clean merge but CVE referenced.",
+        trial_merge=TrialMerge(result="clean"),
+        cve_refs_found=True,
+    )
+    assert entry.preflight.cve_refs_found is True
+    assert entry.preflight.decision == "flagged"
+
+
 def test_evidence_bundle_defaults_empty():
     from tracker.models import EvidenceBundle
 

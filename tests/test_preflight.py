@@ -24,6 +24,7 @@ def _repo() -> RepoConfig:
 
 def _stub_evidence(monkeypatch, *, merge, notes="## notes", compare=None):
     compare = compare or {"total_commits": 3, "commit_messages": ["fix"], "files": ["a.go"]}
+    merge = {"output": "", "conflict_hunks": "", **merge}
     monkeypatch.setattr(preflight, "get_release_notes", lambda repo, tag: notes)
     monkeypatch.setattr(preflight, "compare_tags", lambda repo, base, head: compare)
     monkeypatch.setattr(preflight, "trial_merge_fork", lambda repo, tag, **kw: merge)
@@ -76,12 +77,63 @@ def test_docs_reviewed_reflects_release_notes(monkeypatch):
     assert finding.preflight.docs_reviewed is False
 
 
-def test_cves_are_out_of_scope_in_m4(monkeypatch):
+def test_no_cve_ref_stays_clean(monkeypatch):
+    # Default notes carry no CVE id, so a clean merge stays clean.
     _stub_evidence(
         monkeypatch, merge={"result": "clean", "conflicting_paths": [], "output_ref": None}
     )
     finding = preflight.assess_tag(_repo(), "v1.14.7")
     assert finding.preflight.cve_refs_found is False
+    assert finding.preflight.decision == "clean"
+
+
+def test_cve_ref_flags_clean_merge(monkeypatch):
+    # A clean trial merge that nevertheless references a CVE must be flagged so
+    # the analyzer runs (spec: "flagged — anything of note").
+    _stub_evidence(
+        monkeypatch,
+        merge={"result": "clean", "conflicting_paths": [], "output_ref": None},
+        notes="Security: fixes CVE-2026-1234 in the resolver.",
+    )
+    finding = preflight.assess_tag(_repo(), "v1.14.7")
+    assert finding.preflight.decision == "flagged"
+    assert finding.preflight.cve_refs_found is True
+    assert finding.risk == "medium"
+
+
+def test_cve_ref_in_commit_messages_flags(monkeypatch):
+    _stub_evidence(
+        monkeypatch,
+        merge={"result": "clean", "conflicting_paths": [], "output_ref": None},
+        notes="",
+        compare={"total_commits": 1, "commit_messages": ["bump for CVE-2026-9999"], "files": []},
+    )
+    finding = preflight.assess_tag(_repo(), "v1.14.7")
+    assert finding.preflight.decision == "flagged"
+    assert finding.preflight.cve_refs_found is True
+
+
+def test_node_emits_evidence_bundle(monkeypatch):
+    _stub_evidence(
+        monkeypatch,
+        merge={
+            "result": "conflict",
+            "conflicting_paths": ["a.go"],
+            "output_ref": None,
+            "output": "merge log",
+            "conflict_hunks": "<<<<<<< HEAD",
+        },
+        notes="Fixes CVE-2026-1111",
+        compare={"total_commits": 2, "commit_messages": ["a", "b"], "files": ["a.go", "b.go"]},
+    )
+    out = preflight.preflight_node({"repo": _repo(), "tag": "v1.14.7"})
+    bundle = out["evidence"]
+    assert bundle.conflict_hunks == "<<<<<<< HEAD"
+    assert bundle.trial_merge_output == "merge log"
+    assert bundle.cve_refs == ["CVE-2026-1111"]
+    assert bundle.commit_messages == ["a", "b"]
+    assert bundle.changed_files == ["a.go", "b.go"]
+    assert out["tag_finding"].preflight.decision == "flagged"
 
 
 # --- graph node + routing ------------------------------------------------

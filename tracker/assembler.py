@@ -91,14 +91,17 @@ def flagged_preflight_finding(
     summary: str,
     trial_merge: TrialMerge,
     docs_reviewed: bool = True,
+    cve_refs_found: bool = False,
     highlights: list[Highlight] | None = None,
     dependencies: list[Dependency] | None = None,
     notes_for_reviewer: str | None = None,
 ) -> NewTagFinding:
-    """A flagged-path entry from the preflight gate (M4): ``decision == flagged``.
+    """A flagged-path entry from the preflight gate (M4/M5): ``decision == flagged``.
 
     Deep analysis (``analysis``) is left ``None`` — that is the analyzer's job
-    (M5). CVEs are out of scope for M4, so ``cve_refs_found`` is always ``False``.
+    (M5). ``cve_refs_found`` reflects whether preflight detected any CVE
+    references while building the handoff bundle (M5); authoritative CVE
+    enrichment is M8.
     """
 
     return NewTagFinding(
@@ -107,7 +110,7 @@ def flagged_preflight_finding(
         summary=summary,
         preflight=Preflight(
             docs_reviewed=docs_reviewed,
-            cve_refs_found=False,
+            cve_refs_found=cve_refs_found,
             trial_merge=trial_merge,
             decision="flagged",
         ),

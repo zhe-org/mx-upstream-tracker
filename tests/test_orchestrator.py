@@ -10,16 +10,21 @@ from tracker.agents import orchestrator, preflight
 from tracker.assembler import clean_tag_finding
 from tracker.finalize import finalize_run
 from tracker.graph import _worker_count, dispatch, run_repo_subgraph
-from tracker.models import Finding, RepoConfig, RepoJob
+from tracker.models import EvidenceBundle, Finding, RepoConfig, RepoJob, TrialMerge
 from tracker.registry import load_registry
 
 
-def _fake_preflight(monkeypatch, summary: str = "ok") -> None:
-    """Stub the preflight gate so dispatch/subgraph tests stay offline."""
+def _fake_preflight(monkeypatch) -> None:
+    """Stub preflight's network seam so dispatch/subgraph tests stay offline.
+
+    ``gather_evidence`` is the only part that touches GitHub / git; stubbing it
+    with a clean trial merge lets the real ``decide`` produce a clean finding
+    without any network.
+    """
     monkeypatch.setattr(
         preflight,
-        "assess_tag",
-        lambda repo, tag, **kw: clean_tag_finding(tag, summary=summary),
+        "gather_evidence",
+        lambda repo, tag, **kw: (EvidenceBundle(), TrialMerge(result="clean")),
     )
 
 
@@ -86,14 +91,15 @@ def test_dispatch_fans_out_one_finding_per_job(monkeypatch):
 
 def test_run_repo_subgraph_assembles_per_tag_from_preflight(monkeypatch):
     # The sub-graph runs preflight per tag; the assembled finding must reflect
-    # the preflight output (not the old pending placeholder).
-    _fake_preflight(monkeypatch, summary="from-preflight")
+    # the real preflight output (not the old pending placeholder).
+    _fake_preflight(monkeypatch)
     job = RepoJob(repo=_repo("coredns/coredns", "v1.14.6"), new_tags=["v1.14.8", "v1.14.7"])
 
     finding = run_repo_subgraph(job)
     # Tags come back sorted oldest -> newest, each carrying the preflight summary.
     assert [nt.tag for nt in finding.new_tags] == ["v1.14.7", "v1.14.8"]
-    assert all(nt.summary == "from-preflight" for nt in finding.new_tags)
+    assert all(nt.summary.startswith("Trial merge clean") for nt in finding.new_tags)
+    assert all(nt.preflight.decision == "clean" for nt in finding.new_tags)
 
 
 def test_dispatch_quiet_run_no_findings():
