@@ -92,15 +92,25 @@ Runs on every new tag; decides clean vs flagged. **v1 decision is deterministic 
 
 ---
 
-#### Milestone 5 — Analyzer agent (only on flagged)
+#### Milestone 5 — Analyzer agent (only on flagged) ✅
 
 Deep-dive on the focused handoff bundle (not full raw diff).
 
-- [ ] CVE analysis: what each CVE is, severity, affected component/code path in our fork.
-- [ ] Merge-conflict analysis: which files conflict, why (local patches vs upstream), concrete resolution hints.
-- [ ] Behaviour-change/deprecation analysis: what changed, blast radius, what a reviewer should verify.
-- [ ] Produce actionable reviewer guidance; emit `analysis{}` block for the finding.
-- [ ] Tests with representative flagged bundles (CVE-only, conflict-only, behaviour-change, mixed).
+- [x] CVE analysis: what each CVE is, severity, affected component/code path in our fork.
+- [x] Merge-conflict analysis: which files conflict, why (local patches vs upstream), concrete resolution hints.
+- [x] Behaviour-change/deprecation analysis: what changed, blast radius, what a reviewer should verify.
+- [x] Produce actionable reviewer guidance; emit `analysis{}` block for the finding.
+- [x] Tests with representative flagged bundles (CVE-only, conflict-only, behaviour-change, mixed).
+
+> **Handoff bundle.** The spec's "handoff bundle" is now real: preflight assembles an `EvidenceBundle` (`tracker/models.py`) — release notes, tag-to-tag commit log, changed files, detected CVE refs, and the trial-merge output + conflict hunks — onto `SubgraphState`, and the analyzer consumes it (no duplicate GitHub calls). `gather_evidence`/`decide` split out of preflight's old `assess_tag`; the node emits `{tag_finding, evidence}`.
+
+> **CVE detection moved into M5 (bundle), enrichment stays M8.** CVE *detection* (`tracker/tools/cve.py::find_cve_refs`, regex over notes + commit messages) now runs in preflight and populates `cve_refs`/`cve_refs_found`. Per the spec ("flagged — anything of note"), **a CVE reference flags an otherwise-clean merge** (risk medium) so the analyzer runs. Authoritative CVE *enrichment* (severity/description via NVD / GitHub Advisory) remains M8.
+
+> **Conflict hunks captured.** `git_ops.trial_merge` now captures the conflict markers (`git diff`) before aborting, so the analyzer gets real material for resolution hints (not just file paths).
+
+> **Prompts live in a file, loaded at runtime.** The analyzer's project knowledge (mixed sources, the Canonical branching model, Superdistro dependency policy, the "CI/workflow-file conflicts are trivial — just drop them" rule, vendoring) is kept in `tracker/prompts/analyzer_system.txt` and loaded via `tracker/prompts/load_prompt` at runtime, so it can be tuned without code changes.
+
+> **LLM via structured output, with graceful degradation.** `analyzer.analyze_tag` feeds the system prompt + rendered evidence to the Copilot/gemini chat model (`with_structured_output(AnalyzerOutput)`), then merges the result into the finding (`highlights`/`dependencies`/`analysis`/`notes_for_reviewer`). The model is injectable so tests stay offline. The analyzer may **escalate** risk (e.g. a high-severity CVE) but never downgrades below the preflight risk; any model/parse failure keeps the flagged finding and appends a "deep analysis unavailable" note so one tag never aborts the run. Clean, CVE-free tags never reach the analyzer (cost gate), verified end-to-end.
 
 ---
 

@@ -6,10 +6,10 @@ registry ``registries/upstream-tracker-1-36.yaml`` and the snapshot
 ``state/processed-1-36.json``; the argument is exported as ``RELEASE_SET`` so
 every downstream ``load_settings()`` call resolves the same paths.
 
-In M2 the orchestrator is complete but the per-repo sub-graph (preflight/
-analyzer, M4/M5) and reporter (M6) are still placeholders, so we run the
-orchestrator pipeline and finalize. The reporter step slots in between dispatch
-and finalize once M6 lands.
+In M5 the orchestrator and the full per-repo sub-graph (preflight gate +
+analyzer deep-dive) are complete; only the reporter (M6) is still a placeholder,
+so we run the orchestrator pipeline and finalize. The reporter step slots in
+between dispatch and finalize once M6 lands.
 """
 
 from __future__ import annotations

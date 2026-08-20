@@ -95,6 +95,25 @@ def test_never_downgrades_risk():
     assert finding.risk == "medium"  # preflight risk preserved
 
 
+def test_highlights_and_dependencies_flow_through():
+    from tracker.models import Dependency, Highlight
+
+    out = AnalyzerOutput(
+        risk="medium",
+        highlights=[
+            Highlight(kind="behaviour_change", area="kubelet", detail="eviction default changed")
+        ],
+        dependencies=[
+            Dependency(name="golang.org/x/net", **{"from": "v1", "to": "v2"}, reason="cve_fix")
+        ],
+    )
+    finding = analyzer.analyze_tag(
+        _repo(), "v1.14.7", _flagged(), EvidenceBundle(), model=_FakeModel(out)
+    )
+    assert finding.highlights[0].kind == "behaviour_change"
+    assert finding.dependencies[0].reason == "cve_fix"
+
+
 def test_evidence_reaches_the_model():
     fake = _FakeModel(AnalyzerOutput())
     analyzer.analyze_tag(
