@@ -1,7 +1,7 @@
 {
   "processed": {
-    "coredns/coredns": [
-      "v1.14.7"
+    "golang/go": [
+      "go1.26.7"
     ]
   }
 }
