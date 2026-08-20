@@ -114,14 +114,20 @@ Deep-dive on the focused handoff bundle (not full raw diff).
 
 ---
 
-#### Milestone 6 — Reporter agent
+#### Milestone 6 — Reporter agent ✅
 
 Consumes structured findings only (no raw diffs).
 
-- [ ] Render human-readable **Markdown** report: risk-ranked top section (high-risk first) + per-repo sections (summary, highlights, dependency notes) + direct links to release notes/diffs/CVE entries.
-- [ ] Emit machine-readable **JSON** summary for downstream automation.
-- [ ] Emit optional short **TL;DR** suitable for a chat channel.
-- [ ] Tests: ranking order by risk; links present; clean-only run produces a sensible "nothing risky" report.
+- [x] Render human-readable **Markdown** report: risk-ranked top section (high-risk first) + per-repo sections (summary, highlights, dependency notes) + direct links to release notes/diffs/CVE entries.
+- [x] Emit machine-readable **JSON** summary for downstream automation.
+- [x] Emit optional short **TL;DR** suitable for a chat channel.
+- [x] Tests: ranking order by risk; links present; clean-only run produces a sensible "nothing risky" report.
+
+> **Pure + deterministic** (`tracker/agents/reporter.py`): no I/O, no wall-clock, so it is trivially testable; publishing/delivery is M7. Three renderers — `render_markdown`, `render_json`, `render_tldr` — plus `reporter_node` returning `{report_markdown, report_json, tldr}`. Ranking sorts repos/tags by risk (high→medium→low), ties broken by repo name for stability.
+
+> **Links** derived from the registry: release notes (`<upstream>/releases/tag/<tag>`), tag-to-tag diff (`<upstream>/compare/<last_merged>...<tag>`), and CVE entries (`nvd.nist.gov/vuln/detail/<cve>`). The Markdown surfaces highlights, dependency bumps, the analyzer's CVEs + conflicts (with resolution hints), and reviewer notes; a clean-only run renders a short "Nothing risky" report with no deep-dive sections. JSON carries a `summary` (repo/tag counts + risk_counts) and the full findings dump (`by_alias=True`, so `Dependency` emits `from`/`to` and the computed `tracked_version`/`last_merged_tag` are present).
+
+> **Wired into `main`**: after dispatch, the report is generated, `report.md` + `report.json` are written to the artifact dir, and the TL;DR is printed — then finalize runs. (Issue/PR-comment + Mattermost delivery is M7.)
 
 ---
 

@@ -19,6 +19,7 @@ import os
 import re
 import sys
 
+from tracker.agents.reporter import reporter_node
 from tracker.config import REGISTRIES_DIR, load_settings, registry_path_for
 from tracker.finalize import finalize_run
 from tracker.graph import run_orchestrator
@@ -84,6 +85,17 @@ def main(argv: list[str] | None = None) -> None:
         tags = ", ".join(entry.tag for entry in finding.new_tags)
         line = line_label(finding.repo.current_upstream_tag)
         print(f"  {finding.repo.name} ({line}): {tags}")
+
+    # Render the report (markdown + JSON + TL;DR) and stash it as artifacts.
+    # Publishing/delivery is M7; here we write files and print the TL;DR.
+    report = reporter_node(state)
+    settings.artifact_dir.mkdir(parents=True, exist_ok=True)
+    md_path = settings.artifact_dir / "report.md"
+    json_path = settings.artifact_dir / "report.json"
+    md_path.write_text(report["report_markdown"], encoding="utf-8")
+    json_path.write_text(report["report_json"], encoding="utf-8")
+    print(report["tldr"])
+    print(f"Wrote {md_path.name} and {json_path.name} to {settings.artifact_dir}.")
 
     finalize_run(state.get("repos", []), findings, settings)
     print(
