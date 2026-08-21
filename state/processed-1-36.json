@@ -1,7 +1,7 @@
 {
   "processed": {
-    "golang/go": [
-      "go1.26.7"
+    "kubernetes/kubernetes": [
+      "v1.36.4"
     ]
   }
 }
