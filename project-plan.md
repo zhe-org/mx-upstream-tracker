@@ -133,11 +133,14 @@ Consumes structured findings only (no raw diffs).
 
 #### Milestone 7 — Delivery + triggering (Option A first)
 
-- [ ] Implement GitHub Actions scheduled workflow (daily cron, e.g. 09:00 UTC) in a dedicated tracker repo: checkout registry → run orchestrator → publish report.
-- [ ] Publish report as issue/PR comment in the tracker repo and attach JSON artifact.
-- [ ] Post TL;DR to Mattermost channel via webhook.
-- [ ] Ensure `git` is available on the runner for trial merges (default on GitHub-hosted runners; no LXD/external host required).
-- [ ] Manual re-trigger path (workflow_dispatch).
+- [x] Implement GitHub Actions scheduled workflow (daily cron, 09:00 UTC): checkout registry → run orchestrator → produce report (`.github/workflows/nightly.yml`).
+- [x] Make the report downloadable via the GitHub UI: `report.md` + `report.json` uploaded as a run artifact (`actions/upload-artifact`, `release-report-1.36-<run>`, 30-day retention, `if-no-files-found: ignore` for quiet runs).
+- [x] Ensure `git` is available on the runner for trial merges (default on GitHub-hosted runners; no LXD/external host required).
+- [x] Manual re-trigger path (workflow_dispatch).
+- [ ] ~~Publish report as issue/PR comment in the tracker repo~~ — deferred; scoped v1 delivers via downloadable artifact instead (`issues: write` permission dropped for now).
+- [ ] Post TL;DR to Mattermost channel via webhook — deferred.
+
+> **Scoped delivery.** v1 delivery is a downloadable GitHub Actions artifact rather than issue/PR-comment + Mattermost push. The nightly workflow runs the single `1.36` release set; a matrix over `registries/` and richer delivery (issue comment, Mattermost webhook) remain follow-ups.
 
 ---
 

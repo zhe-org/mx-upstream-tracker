@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: write   # to commit updated registry + state snapshot
-  issues: write     # to post the report as an issue (Milestone 7)
 
 concurrency:
   group: release-tracker
@@ -35,6 +34,17 @@ jobs:
       - name: Run tracker
         # One release set for now; a matrix over registries/ lands with M7.
         run: uv run python -m tracker.main 1.36
+
+      - name: Upload report artifact
+        # Makes report.md + report.json downloadable from the run page in the
+        # GitHub UI. Quiet runs produce no report, so a missing dir is fine.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-report-1.36-${{ github.run_number }}
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Persist registry + processed-tag state
         run: |
