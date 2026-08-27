@@ -37,9 +37,9 @@ _FLAGGED_RISK: dict[str, Risk] = {"conflict": "medium", "error": "high"}
 _CVE_ONLY_RISK: Risk = "medium"
 
 
-def _summary(result: str, commits: int, files: int, conflicts: list[str], base: str) -> str:
+def _summary(result: str, commits: int, conflicts: list[str], base: str) -> str:
     if result == "clean":
-        return f"Trial merge clean; {commits} commit(s), {files} file(s) changed since {base}."
+        return f"Trial merge clean; {commits} commit(s) since {base}."
     if result == "conflict":
         return f"Trial merge conflicts in {len(conflicts)} file(s); needs a manual merge."
     return "Trial merge could not be evaluated (git error)."
@@ -58,16 +58,16 @@ def gather_evidence(
     settings = settings or load_settings()
 
     notes = get_release_notes(repo.name, tag)
-    compare = compare_tags(repo.name, repo.current_upstream_tag, tag)
+    commit_messages = compare_tags(repo.name, repo.current_upstream_tag, tag).get(
+        "commit_messages", []
+    )
     merge = trial_merge_fork(repo, tag, artifact_dir=settings.artifact_dir, token=settings.gh_token)
 
-    commit_messages = compare.get("commit_messages", [])
     cve_refs = find_cve_refs([notes, *commit_messages])
 
     bundle = EvidenceBundle(
         release_notes=notes,
         commit_messages=commit_messages,
-        changed_files=compare.get("files", []),
         cve_refs=cve_refs,
         trial_merge_output=merge.get("output", ""),
         conflict_hunks=merge.get("conflict_hunks", ""),
@@ -90,7 +90,6 @@ def decide(repo: RepoConfig, tag: str, bundle: EvidenceBundle, trial: TrialMerge
     summary = _summary(
         trial.result,
         len(bundle.commit_messages),
-        len(bundle.changed_files),
         trial.conflicting_paths,
         repo.current_upstream_tag,
     )

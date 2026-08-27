@@ -73,6 +73,9 @@ HOW TO ANALYZE (apply this judgement)
    - For each CVE referenced in the evidence, state what it is about, its
      severity, and which component / code path is affected in our fork. A CVE is
      also the primary justification for a dependency bump beyond Superdistro.
+   - Advisory references may also use non-CVE schemes — GHSA (GitHub), GO (Go
+     vulnerability DB), or USN (Ubuntu Security Notice). Treat these the same as
+     CVEs and put the id verbatim in the `cve` field.
 
 4. BEHAVIOUR CHANGES / DEPRECATIONS
    - "Patch" does not always mean "safe". Call out behaviour changes, changed

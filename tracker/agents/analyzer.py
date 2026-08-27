@@ -43,7 +43,6 @@ _RANK: dict[Risk, int] = {"low": 0, "medium": 1, "high": 2}
 _NOTES_CAP = 8000
 _HUNKS_CAP = 8000
 _COMMITS_CAP = 100
-_FILES_CAP = 100
 
 
 def system_prompt() -> str:
@@ -70,7 +69,6 @@ def _evidence_text(repo: RepoConfig, tag: str, finding: NewTagFinding, ev: Evide
         f"Trial merge result: {trial.result}",
         f"Conflicting paths: {trial.conflicting_paths}",
         f"CVE references detected: {ev.cve_refs}",
-        f"Changed files: {ev.changed_files[:_FILES_CAP]}",
         "",
         "Commit messages:",
         "\n".join(f"- {m.strip()}" for m in ev.commit_messages[:_COMMITS_CAP]) or "(none)",

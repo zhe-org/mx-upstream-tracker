@@ -134,14 +134,13 @@ class EvidenceBundle(BaseModel):
     """Handoff bundle preflight builds for the analyzer (spec: "handoff bundle").
 
     Carries the evidence the analyzer reasons over — release notes, the
-    tag-to-tag commit log, changed files, detected CVE references, and the trial
-    merge's captured output + conflict hunks. Only assembled when preflight
-    flags a tag; the analyzer never re-fetches from GitHub.
+    tag-to-tag commit messages, detected CVE references, and the trial merge's
+    captured output + conflict hunks. Only assembled when preflight flags a tag;
+    the analyzer never re-fetches from GitHub.
     """
 
     release_notes: str = ""
     commit_messages: list[str] = Field(default_factory=list)
-    changed_files: list[str] = Field(default_factory=list)
     cve_refs: list[str] = Field(default_factory=list)
     trial_merge_output: str = ""
     conflict_hunks: str = ""

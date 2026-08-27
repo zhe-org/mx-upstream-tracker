@@ -54,15 +54,17 @@ def get_release_notes(repo: str, tag: str) -> str:
 
 
 def compare_tags(repo: str, base: str, head: str) -> dict:
-    """Summarise the ``base..head`` range: commit count, messages, changed files."""
+    """Return the ``base..head`` commit messages (used for CVE detection).
+
+    Only the commit messages are surfaced — the file diff and commit count are
+    not consumed by the gate or the analyzer, so we don't pay to carry them.
+    """
 
     client = _client()
     try:
         comparison = client.get_repo(repo).compare(base, head)
         return {
-            "total_commits": comparison.total_commits,
             "commit_messages": [c.commit.message for c in comparison.commits],
-            "files": [f.filename for f in comparison.files],
         }
     finally:
         client.close()

@@ -93,6 +93,15 @@ def test_link_helpers():
     assert reporter.cve_url("CVE-2026-1111") == ("https://nvd.nist.gov/vuln/detail/CVE-2026-1111")
 
 
+def test_cve_url_is_scheme_aware():
+    assert reporter.cve_url("CVE-2026-1111") == "https://nvd.nist.gov/vuln/detail/CVE-2026-1111"
+    assert reporter.cve_url("GHSA-6vch-q96h-7gc3") == (
+        "https://github.com/advisories/GHSA-6vch-q96h-7gc3"
+    )
+    assert reporter.cve_url("GO-2024-0001") == "https://pkg.go.dev/vuln/GO-2024-0001"
+    assert reporter.cve_url("USN-1234-1") == "https://ubuntu.com/security/notices/USN-1234-1"
+
+
 # --- markdown ------------------------------------------------------------
 
 

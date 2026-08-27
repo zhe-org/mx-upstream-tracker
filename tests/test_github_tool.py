@@ -22,15 +22,8 @@ class _FakeCommit:
         self.commit = type("C", (), {"message": message})()
 
 
-class _FakeFile:
-    def __init__(self, filename: str):
-        self.filename = filename
-
-
 class _FakeComparison:
-    total_commits = 2
     commits = [_FakeCommit("fix: a"), _FakeCommit("fix: b")]
-    files = [_FakeFile("plugin/a.go"), _FakeFile("plugin/b.go")]
 
 
 class _FakeRepo:
@@ -72,9 +65,7 @@ def test_get_release_notes_empty_when_no_release(monkeypatch):
     assert gh.get_release_notes("coredns/coredns", "v9.9.9") == ""
 
 
-def test_compare_tags_shapes_summary(monkeypatch):
+def test_compare_tags_returns_commit_messages(monkeypatch):
     _patch_client(monkeypatch, _FakeRepo())
     out = gh.compare_tags("coredns/coredns", "v1.14.6", "v1.14.7")
-    assert out["total_commits"] == 2
-    assert out["files"] == ["plugin/a.go", "plugin/b.go"]
-    assert out["commit_messages"] == ["fix: a", "fix: b"]
+    assert out == {"commit_messages": ["fix: a", "fix: b"]}

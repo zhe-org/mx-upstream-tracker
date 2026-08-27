@@ -40,8 +40,20 @@ def compare_url(repo: RepoConfig, tag: str) -> str:
 
 
 def cve_url(cve: str) -> str:
-    """NVD detail URL for a CVE id."""
-    return f"https://nvd.nist.gov/vuln/detail/{cve}"
+    """Detail URL for an advisory id, chosen by scheme.
+
+    Recognises CVE (NVD), GHSA (GitHub Advisories), GO (Go vuln DB) and USN
+    (Ubuntu Security Notices); anything else falls back to NVD. Name kept as
+    ``cve_url`` for continuity even though it now serves multiple schemes.
+    """
+    upper = cve.upper()
+    if upper.startswith("GHSA-"):
+        return f"https://github.com/advisories/{cve}"
+    if upper.startswith("GO-"):
+        return f"https://pkg.go.dev/vuln/{upper}"
+    if upper.startswith("USN-"):
+        return f"https://ubuntu.com/security/notices/{upper}"
+    return f"https://nvd.nist.gov/vuln/detail/{upper}"
 
 
 # --- ranking -------------------------------------------------------------

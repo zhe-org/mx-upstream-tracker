@@ -198,7 +198,6 @@ def test_evidence_bundle_defaults_empty():
     bundle = EvidenceBundle()
     assert bundle.release_notes == ""
     assert bundle.commit_messages == []
-    assert bundle.changed_files == []
     assert bundle.cve_refs == []
     assert bundle.trial_merge_output == ""
     assert bundle.conflict_hunks == ""

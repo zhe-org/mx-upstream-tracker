@@ -23,7 +23,7 @@ def _repo() -> RepoConfig:
 
 
 def _stub_evidence(monkeypatch, *, merge, notes="## notes", compare=None):
-    compare = compare or {"total_commits": 3, "commit_messages": ["fix"], "files": ["a.go"]}
+    compare = compare or {"commit_messages": ["fix"]}
     merge = {"output": "", "conflict_hunks": "", **merge}
     monkeypatch.setattr(preflight, "get_release_notes", lambda repo, tag: notes)
     monkeypatch.setattr(preflight, "compare_tags", lambda repo, base, head: compare)
@@ -106,7 +106,7 @@ def test_cve_ref_in_commit_messages_flags(monkeypatch):
         monkeypatch,
         merge={"result": "clean", "conflicting_paths": [], "output_ref": None},
         notes="",
-        compare={"total_commits": 1, "commit_messages": ["bump for CVE-2026-9999"], "files": []},
+        compare={"commit_messages": ["bump for CVE-2026-9999"]},
     )
     finding = preflight.assess_tag(_repo(), "v1.14.7")
     assert finding.preflight.decision == "flagged"
@@ -124,7 +124,7 @@ def test_node_emits_evidence_bundle(monkeypatch):
             "conflict_hunks": "<<<<<<< HEAD",
         },
         notes="Fixes CVE-2026-1111",
-        compare={"total_commits": 2, "commit_messages": ["a", "b"], "files": ["a.go", "b.go"]},
+        compare={"commit_messages": ["a", "b"]},
     )
     out = preflight.preflight_node({"repo": _repo(), "tag": "v1.14.7"})
     bundle = out["evidence"]
@@ -132,7 +132,6 @@ def test_node_emits_evidence_bundle(monkeypatch):
     assert bundle.trial_merge_output == "merge log"
     assert bundle.cve_refs == ["CVE-2026-1111"]
     assert bundle.commit_messages == ["a", "b"]
-    assert bundle.changed_files == ["a.go", "b.go"]
     assert out["tag_finding"].preflight.decision == "flagged"
 
 

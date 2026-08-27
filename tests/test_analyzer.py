@@ -120,7 +120,7 @@ def test_evidence_reaches_the_model():
         _repo(),
         "v1.14.7",
         _flagged(),
-        EvidenceBundle(cve_refs=["CVE-2026-9"], changed_files=["pkg/x.go"]),
+        EvidenceBundle(cve_refs=["CVE-2026-9"], commit_messages=["touch pkg/x.go"]),
         model=fake,
     )
     blob = str(fake.structured.seen)
@@ -177,7 +177,7 @@ def test_flagged_tag_flows_through_subgraph_to_analysis(monkeypatch):
         preflight,
         "gather_evidence",
         lambda repo, tag, **kw: (
-            EvidenceBundle(conflict_hunks="<<<<<<< HEAD", changed_files=["a.go"]),
+            EvidenceBundle(conflict_hunks="<<<<<<< HEAD", commit_messages=["a"]),
             TrialMerge(result="conflict", conflicting_paths=["a.go"]),
         ),
     )
