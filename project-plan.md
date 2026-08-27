@@ -137,10 +137,12 @@ Consumes structured findings only (no raw diffs).
 - [x] Make the report downloadable via the GitHub UI: `report.md` + `report.json` uploaded as a run artifact (`actions/upload-artifact`, `release-report-1.36-<run>`, 30-day retention, `if-no-files-found: ignore` for quiet runs).
 - [x] Ensure `git` is available on the runner for trial merges (default on GitHub-hosted runners; no LXD/external host required).
 - [x] Manual re-trigger path (workflow_dispatch).
-- [ ] ~~Publish report as issue/PR comment in the tracker repo~~ — deferred; scoped v1 delivers via downloadable artifact instead (`issues: write` permission dropped for now).
+- [x] Matrix over release sets (`1.36`, `1.37`) — one job per set, per-set report artifact + commit; extend by adding to the matrix array.
+- [x] Publish a **GitHub Pages web report**: `publish` job aggregates every set's `report.json` into one designed HTML page (`tracker/site.py`) and deploys via `actions/deploy-pages`. The page has an overview (per-set risk counts), a risk-ranked **version-bump table** (From → To per component), collapsible per-component deep-dive cards, and a risk filter. Deployment needs Settings → Pages → "GitHub Actions" (Admin) — access-controlled once the repo lives under the Canonical org.
+- [ ] ~~Publish report as issue/PR comment in the tracker repo~~ — deferred; delivered via the Pages site + downloadable artifact instead (`issues: write` permission dropped for now).
 - [ ] Post TL;DR to Mattermost channel via webhook — deferred.
 
-> **Scoped delivery.** v1 delivery is a downloadable GitHub Actions artifact rather than issue/PR-comment + Mattermost push. The nightly workflow runs the single `1.36` release set; a matrix over `registries/` and richer delivery (issue comment, Mattermost webhook) remain follow-ups.
+> **Delivery.** v1 delivers a **downloadable artifact** (`report.md`/`report.json`) **and a GitHub Pages site** (combined HTML across all release sets), instead of issue/PR comments. `tracker.main` now always writes `report.md`/`report.json`/`meta.json` (even on quiet runs) so the site always has current per-set content; the `publish` job downloads every set's artifact and renders one page. Issue-comment + Mattermost push remain follow-ups.
 
 ---
 

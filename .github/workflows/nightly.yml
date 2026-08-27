@@ -7,7 +7,7 @@ on:
   workflow_dispatch: {}  # allow manual re-trigger
 
 permissions:
-  contents: write   # to commit updated registry + state snapshot
+  contents: read
 
 concurrency:
   group: release-tracker
@@ -16,6 +16,8 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # to commit updated registry + state snapshot
     strategy:
       # One job per K8s release set. Add "1.33"–"1.35" here as their registries
       # land (registries/upstream-tracker-<set>.yaml).
@@ -46,8 +48,8 @@ jobs:
         run: uv run python -m tracker.main ${{ matrix.release_set }}
 
       - name: Upload report artifact
-        # Makes report.md + report.json downloadable from the run page in the
-        # GitHub UI. Quiet runs produce no report, so a missing dir is fine.
+        # report.md/json/meta.json (always written, even on a quiet run) become
+        # downloadable from the run page and feed the Pages publish job below.
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -67,3 +69,53 @@ jobs:
             git pull --rebase origin "${GITHUB_REF_NAME}"
             git push
           fi
+
+  publish:
+    # Aggregate every set's report into one HTML page and deploy it to Pages.
+    needs: run
+    # Publish even if one set failed (fail-fast: false), but not on cancel.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write       # deploy the site
+      id-token: write    # OIDC token for the Pages deployment
+      actions: read      # download this run's artifacts
+      contents: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Download all set reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-report-*-${{ github.run_number }}
+          path: _reports
+
+      - name: Build site
+        run: uv run python -m tracker.site _reports site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

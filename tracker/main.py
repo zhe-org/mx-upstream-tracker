@@ -6,18 +6,20 @@ registry ``registries/upstream-tracker-1-36.yaml`` and the snapshot
 ``state/processed-1-36.json``; the argument is exported as ``RELEASE_SET`` so
 every downstream ``load_settings()`` call resolves the same paths.
 
-In M5 the orchestrator and the full per-repo sub-graph (preflight gate +
-analyzer deep-dive) are complete; only the reporter (M6) is still a placeholder,
-so we run the orchestrator pipeline and finalize. The reporter step slots in
-between dispatch and finalize once M6 lands.
+The run discovers new tags, runs the per-repo sub-graph (preflight gate +
+analyzer deep-dive), renders the report (markdown + JSON + TL;DR), and writes
+``report.md`` / ``report.json`` / ``meta.json`` to the artifact dir for the
+Pages site to publish. Finalize then advances the registry baseline.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
+from datetime import UTC, datetime
 
 from tracker.agents.reporter import reporter_node
 from tracker.config import REGISTRIES_DIR, load_settings, registry_path_for
@@ -77,31 +79,38 @@ def main(argv: list[str] | None = None) -> None:
     state = run_orchestrator()
     findings = state.get("findings", [])
 
-    if not findings:
+    if findings:
+        for finding in findings:
+            tags = ", ".join(entry.tag for entry in finding.new_tags)
+            line = line_label(finding.repo.current_upstream_tag)
+            print(f"  {finding.repo.name} ({line}): {tags}")
+    else:
         print("Quiet run: no new upstream tags on any tracked line.")
-        return
 
-    for finding in findings:
-        tags = ", ".join(entry.tag for entry in finding.new_tags)
-        line = line_label(finding.repo.current_upstream_tag)
-        print(f"  {finding.repo.name} ({line}): {tags}")
-
-    # Render the report (markdown + JSON + TL;DR) and stash it as artifacts.
-    # Publishing/delivery is M7; here we write files and print the TL;DR.
+    # Always render + write the report (markdown + JSON + TL;DR + meta), even on
+    # a quiet run, so the published site has current content for every set. The
+    # sibling meta.json lets the site generator label the set and show when it
+    # was last updated.
     report = reporter_node(state)
     settings.artifact_dir.mkdir(parents=True, exist_ok=True)
-    md_path = settings.artifact_dir / "report.md"
-    json_path = settings.artifact_dir / "report.json"
-    md_path.write_text(report["report_markdown"], encoding="utf-8")
-    json_path.write_text(report["report_json"], encoding="utf-8")
+    (settings.artifact_dir / "report.md").write_text(report["report_markdown"], encoding="utf-8")
+    (settings.artifact_dir / "report.json").write_text(report["report_json"], encoding="utf-8")
+    meta = {
+        "release_set": release_set,
+        "generated_at_utc": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+    (settings.artifact_dir / "meta.json").write_text(
+        json.dumps(meta, indent=2) + "\n", encoding="utf-8"
+    )
     print(report["tldr"])
-    print(f"Wrote {md_path.name} and {json_path.name} to {settings.artifact_dir}.")
+    print(f"Wrote report.md, report.json, meta.json to {settings.artifact_dir}.")
 
     finalize_run(state.get("repos", []), findings, settings)
-    print(
-        f"Reported {len(findings)} repo(s). Updated {settings.state_path.name} snapshot "
-        f"and advanced current_upstream_tag in {settings.tracker_path.name}."
-    )
+    if findings:
+        print(
+            f"Reported {len(findings)} repo(s). Updated {settings.state_path.name} snapshot "
+            f"and advanced current_upstream_tag in {settings.tracker_path.name}."
+        )
 
 
 if __name__ == "__main__":

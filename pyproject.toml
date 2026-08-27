@@ -33,6 +33,11 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
+[tool.ruff.lint.per-file-ignores]
+# site.py embeds a CSS/HTML/JS template where physical line length is not
+# meaningful; the Python logic above it stays within the limit.
+"tracker/site.py" = ["E501"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
