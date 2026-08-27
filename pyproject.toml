@@ -1,5 +1,5 @@
 [project]
-name = "k8s-upstream-tracker"
+name = "mx-upstream-tracker"
 version = "0.1.0"
 description = "AI workflow that tracks upstream Kubernetes-related releases and produces consolidated, risk-ranked merge review reports for our internal forks."
 readme = "README.md"
@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-k8s-upstream-tracker = "tracker.main:main"
+mx-upstream-tracker = "tracker.main:main"
 
 [dependency-groups]
 dev = [

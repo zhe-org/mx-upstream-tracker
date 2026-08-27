@@ -1,4 +1,4 @@
-# k8s-upstream-tracker
+# mx-upstream-tracker
 
 AI workflow that tracks upstream Kubernetes-related releases on the repos we
 fork, analyses each new tag (release notes, tag-to-tag diff, dependency/CVE

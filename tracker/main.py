@@ -70,7 +70,7 @@ def main(argv: list[str] | None = None) -> None:
 
     settings = load_settings()
     print(
-        f"k8s-upstream-tracker: release_set={release_set} "
+        f"mx-upstream-tracker: release_set={release_set} "
         f"model={settings.llm_model} tracker={settings.tracker_path}"
     )
 

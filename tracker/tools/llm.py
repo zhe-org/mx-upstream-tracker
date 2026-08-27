@@ -29,7 +29,7 @@ def get_chat_model(settings: Settings | None = None) -> ChatOpenAI:
         api_key=settings.require_openrouter_key(),
         temperature=settings.llm_temperature,
         default_headers={
-            "HTTP-Referer": "https://github.com/canonical/k8s-upstream-tracker",
-            "X-OpenRouter-Title": "k8s-upstream-tracker",
+            "HTTP-Referer": "https://github.com/canonical/mx-upstream-tracker",
+            "X-OpenRouter-Title": "mx-upstream-tracker",
         },
     )

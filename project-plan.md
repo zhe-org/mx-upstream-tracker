@@ -1,7 +1,7 @@
 ### Upstream Release Tracker & Report Agent — implementation TODOs
 
 **Author:** Zhe Yuan
-**Spec:** `k8s-upstream-tracker/spec.md`
+**Spec:** `mx-upstream-tracker/spec.md`
 **Goal:** Build a multi-agent AI workflow that continuously tracks upstream releases on every repo we fork, analyses each new tag (release notes, diff, dependency/CVE changes, trial merge), and produces a consolidated, risk-ranked review report — v1 does **not** perform the real merge.
 
 **Architecture:** Orchestrator (cheap/deterministic bookkeeping + dispatch) → one per-repo sub-graph (preflight gate → analyzer only if flagged) → reporter (markdown + JSON + TL;DR) → delivery layer.
