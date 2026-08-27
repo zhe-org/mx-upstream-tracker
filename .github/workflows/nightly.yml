@@ -16,6 +16,16 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
+    strategy:
+      # One job per K8s release set. Add "1.33"–"1.35" here as their registries
+      # land (registries/upstream-tracker-<set>.yaml).
+      matrix:
+        release_set: ["1.36", "1.37"]
+      # A failing set must not cancel the others.
+      fail-fast: false
+      # Serialize so the two jobs' registry/state commits never race on a
+      # concurrent push (each job checks out after the previous one's push).
+      max-parallel: 1
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -33,8 +43,7 @@ jobs:
         run: uv sync
 
       - name: Run tracker
-        # One release set for now; a matrix over registries/ lands with M7.
-        run: uv run python -m tracker.main 1.36
+        run: uv run python -m tracker.main ${{ matrix.release_set }}
 
       - name: Upload report artifact
         # Makes report.md + report.json downloadable from the run page in the
@@ -42,7 +51,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: release-report-1.36-${{ github.run_number }}
+          name: release-report-${{ matrix.release_set }}-${{ github.run_number }}
           path: artifacts/
           if-no-files-found: ignore
           retention-days: 30
@@ -53,6 +62,8 @@ jobs:
             git config user.name "release-tracker-bot"
             git config user.email "release-tracker-bot@users.noreply.github.com"
             git add registries/ state/
-            git commit -m "chore: update tracker registry + processed state [skip ci]"
+            git commit -m "chore: update tracker registry + processed state (${{ matrix.release_set }}) [skip ci]"
+            # Rebase onto any commit the previous matrix set pushed, then push.
+            git pull --rebase origin "${GITHUB_REF_NAME}"
             git push
           fi
