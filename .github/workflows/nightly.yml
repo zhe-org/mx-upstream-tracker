@@ -87,6 +87,9 @@ jobs:
     concurrency:
       group: pages
       cancel-in-progress: false
+    outputs:
+      # Expose the deployed page URL so the notify job can link to it.
+      page_url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -119,3 +122,36 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deploy
         uses: actions/deploy-pages@v4
+
+  notify:
+    # Post one brief Mattermost message across all sets, after the page is live.
+    needs: [run, publish]
+    # Notify even if one set failed (fail-fast: false), but not on cancel.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read      # download this run's artifacts
+      contents: read
+    env:
+      MATTERMOST_WEBHOOK_URL: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Download all set reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-report-*-${{ github.run_number }}
+          path: _reports
+
+      - name: Post Mattermost notification
+        # No-ops cleanly if the webhook secret is unset or the run was quiet.
+        run: uv run python -m tracker.notify _reports --page-url "${{ needs.publish.outputs.page_url }}"

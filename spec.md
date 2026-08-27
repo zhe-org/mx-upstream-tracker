@@ -124,7 +124,7 @@ touch an LLM.
         +--------v-----------------------------+
         |  Delivery                            |
         |  GitHub Pages site + downloadable    |
-        |  artifact                            |
+        |  artifact + Mattermost notification  |
         +--------------------------------------+
 ```
 
@@ -397,14 +397,23 @@ A few options, not mutually exclusive. v1 ships Option A.
     into one HTML page and deploys it via `actions/deploy-pages` (access-controlled
     when hosted under the Canonical org).
   - **Downloadable artifact** — `report.md` / `report.json` uploaded per set.
+  - **Mattermost notification** — a `notify` job (after `publish`) aggregates
+    every set's report into one brief message — the components with new tags
+    grouped by set (From → To), a risk tally, and a link to the deployed Pages
+    report — and posts it to a channel via an **incoming webhook**
+    (`MATTERMOST_WEBHOOK_URL`). It stays silent on a quiet run (no new tags) and
+    no-ops cleanly when the webhook is unset, so it never fails the workflow.
   - The updated registry (`current_upstream_tag` advanced) and processed-tag
     snapshot are committed back to the repo.
-- Deferred: posting the report as an issue / PR comment, and a Mattermost push.
+- Deferred: posting the report as an issue / PR comment.
 
 Pros: zero new infra, easy to audit (every run is a workflow run with logs),
 easy to re-trigger manually.
 
 ### Option B: Mattermost bot (future)
+
+The scheduled, unsolicited push already ships in Option A (the `notify` job's
+incoming-webhook message). Option B is the future **interactive** layer on top:
 
 - A bot user in our Mattermost workspace exposes slash commands:
   - `/release-tracker run` — run the workflow now and post the report in-channel.
@@ -439,6 +448,8 @@ Cons: noisier; more moving parts.
   usually enough) and read access to our forks (needed for the trial-merge
   clone), and `OPENROUTER_API_KEY` for the analyzer's LLM
   (OpenRouter, `google/gemini-2.5-pro`).
+- Optional: `MATTERMOST_WEBHOOK_URL` (incoming-webhook URL) for the nightly
+  Mattermost notification; unset disables the push (the `notify` job no-ops).
 - `git` available on the runner to perform trial merges in a temporary
   workspace, plus somewhere to stash the captured merge output as an artifact.
   No dedicated sandbox host is required — the GitHub Actions runner is already

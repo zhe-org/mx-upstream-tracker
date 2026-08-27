@@ -1,0 +1,222 @@
+"""Mattermost notification tests (Milestone 7 delivery).
+
+The notifier aggregates the per-release-set reports (the same ``report.json`` +
+``meta.json`` artifacts the site generator consumes), builds one brief markdown
+message listing the components with new tags, and POSTs it to a Mattermost
+incoming webhook. Tests are fully offline: message building is pure, and the
+HTTP POST is monkeypatched. They pin: the component list (From -> To per
+component grouped by set), the risk tally, the report link, the quiet-run
+"stay silent" contract, and the CLI's no-op-when-unset behaviour.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from tracker import notify
+from tracker.agents.reporter import render_json
+from tracker.assembler import clean_tag_finding, flagged_preflight_finding
+from tracker.models import Finding, RepoConfig, TrialMerge
+from tracker.site import SetReport, load_reports
+
+PAGE_URL = "https://canonical.github.io/k8s-upstream-tracker/"
+
+
+def _repo(name: str, tag: str) -> RepoConfig:
+    return RepoConfig(
+        name=name,
+        upstream=f"https://github.com/{name}",
+        canonical_repo=f"https://github.com/canonical/mx-{name.replace('/', '-')}",
+        canonical_branch="canonical/x-26.04/stable",
+        current_upstream_tag=tag,
+    )
+
+
+def _high() -> Finding:
+    tag = flagged_preflight_finding(
+        "v1.37.1",
+        risk="high",
+        summary="kubelet eviction default changed; CVE fix.",
+        trial_merge=TrialMerge(result="conflict", conflicting_paths=["pkg/kubelet/x.go"]),
+        cve_refs_found=True,
+    )
+    return Finding(repo=_repo("kubernetes/kubernetes", "v1.37.0"), new_tags=[tag])
+
+
+def _clean() -> Finding:
+    return Finding(
+        repo=_repo("coredns/coredns", "v1.14.6"),
+        new_tags=[clean_tag_finding("v1.14.7", summary="Trial merge clean; 3 commit(s).")],
+    )
+
+
+def _medium() -> Finding:
+    tag = flagged_preflight_finding(
+        "v2.3.1",
+        risk="medium",
+        summary="Routine bugfixes; one dependency bump.",
+        trial_merge=TrialMerge(result="clean"),
+        cve_refs_found=True,
+    )
+    return Finding(repo=_repo("containerd/containerd", "v2.3.0"), new_tags=[tag])
+
+
+# --- build_message -------------------------------------------------------
+
+
+def test_build_message_lists_components_grouped_by_set_with_link():
+    reports = [
+        SetReport("1.36", "2026-08-27T09:00:00+00:00", [_clean(), _medium()]),
+        SetReport("1.37", "2026-08-27T09:00:00+00:00", [_high()]),
+    ]
+
+    msg = notify.build_message(reports, PAGE_URL)
+
+    assert msg is not None
+    # Component count across all sets (3 findings = 3 components with new tags).
+    assert "3" in msg
+    # Grouped by set headers.
+    assert "Kubernetes 1.36" in msg
+    assert "Kubernetes 1.37" in msg
+    # Per-component From -> To lines.
+    assert "kubernetes/kubernetes" in msg
+    assert "v1.37.0" in msg and "v1.37.1" in msg
+    assert "coredns/coredns" in msg
+    assert "v1.14.6" in msg and "v1.14.7" in msg
+    # Risk tally reflects 1 high, 1 medium, 1 low.
+    assert "1 high" in msg
+    assert "1 medium" in msg
+    assert "1 low" in msg
+    # Report link present.
+    assert PAGE_URL in msg
+
+
+def test_build_message_quiet_run_returns_none():
+    reports = [
+        SetReport("1.36", None, []),
+        SetReport("1.37", None, []),
+    ]
+    assert notify.build_message(reports, PAGE_URL) is None
+
+
+def test_build_message_without_page_url_omits_link():
+    reports = [SetReport("1.37", None, [_high()])]
+    msg = notify.build_message(reports, None)
+    assert msg is not None
+    assert "View full report" not in msg
+
+
+def test_build_message_skips_empty_sets_in_body():
+    reports = [
+        SetReport("1.36", None, []),  # quiet set: no header
+        SetReport("1.37", None, [_high()]),
+    ]
+    msg = notify.build_message(reports, PAGE_URL)
+    assert msg is not None
+    assert "Kubernetes 1.36" not in msg
+    assert "Kubernetes 1.37" in msg
+
+
+# --- post_message --------------------------------------------------------
+
+
+def test_post_message_posts_text_payload(monkeypatch):
+    captured: dict = {}
+
+    def fake_post(url, json=None, timeout=None):  # noqa: A002 - mirror httpx.post
+        captured["url"] = url
+        captured["json"] = json
+        captured["timeout"] = timeout
+        return _FakeResponse()
+
+    monkeypatch.setattr(notify.httpx, "post", fake_post)
+
+    notify.post_message("https://mm.example.com/hooks/abc", "hello")
+
+    assert captured["url"] == "https://mm.example.com/hooks/abc"
+    assert captured["json"] == {"text": "hello"}
+    assert captured["timeout"] is not None
+
+
+def test_post_message_raises_on_http_error(monkeypatch):
+    def fake_post(url, json=None, timeout=None):  # noqa: A002
+        return _FakeResponse(raise_error=RuntimeError("boom"))
+
+    monkeypatch.setattr(notify.httpx, "post", fake_post)
+
+    raised = False
+    try:
+        notify.post_message("https://mm.example.com/hooks/abc", "hello")
+    except RuntimeError:
+        raised = True
+    assert raised
+
+
+# --- CLI -----------------------------------------------------------------
+
+
+def _write_set(root: Path, release_set: str, findings: list[Finding]) -> None:
+    d = root / f"release-report-{release_set}-7"
+    d.mkdir(parents=True)
+    (d / "report.json").write_text(render_json(findings), encoding="utf-8")
+    (d / "meta.json").write_text(
+        json.dumps({"release_set": release_set, "generated_at_utc": "2026-08-27T09:00:00+00:00"}),
+        encoding="utf-8",
+    )
+
+
+def test_cli_noop_when_webhook_unset(tmp_path: Path, monkeypatch):
+    _write_set(tmp_path, "1.37", [_high()])
+    monkeypatch.delenv("MATTERMOST_WEBHOOK_URL", raising=False)
+
+    posted: list = []
+    monkeypatch.setattr(notify, "post_message", lambda url, text: posted.append((url, text)))
+
+    notify.main([str(tmp_path), "--page-url", PAGE_URL])
+
+    assert posted == []  # nothing sent without a webhook
+
+
+def test_cli_posts_when_new_tags(tmp_path: Path, monkeypatch):
+    _write_set(tmp_path, "1.37", [_high()])
+    monkeypatch.setenv("MATTERMOST_WEBHOOK_URL", "https://mm.example.com/hooks/abc")
+
+    posted: list = []
+    monkeypatch.setattr(notify, "post_message", lambda url, text: posted.append((url, text)))
+
+    notify.main([str(tmp_path), "--page-url", PAGE_URL])
+
+    assert len(posted) == 1
+    url, text = posted[0]
+    assert url == "https://mm.example.com/hooks/abc"
+    assert "kubernetes/kubernetes" in text
+    assert PAGE_URL in text
+
+
+def test_cli_quiet_run_does_not_post(tmp_path: Path, monkeypatch):
+    _write_set(tmp_path, "1.37", [])  # quiet set
+    monkeypatch.setenv("MATTERMOST_WEBHOOK_URL", "https://mm.example.com/hooks/abc")
+
+    posted: list = []
+    monkeypatch.setattr(notify, "post_message", lambda url, text: posted.append((url, text)))
+
+    notify.main([str(tmp_path), "--page-url", PAGE_URL])
+
+    assert posted == []
+
+
+def test_cli_loads_reports_from_artifacts(tmp_path: Path):
+    # Sanity: the CLI's loader is the site loader (shared contract).
+    _write_set(tmp_path, "1.37", [_high()])
+    reports = load_reports(tmp_path)
+    assert reports[0].release_set == "1.37"
+
+
+class _FakeResponse:
+    def __init__(self, raise_error: Exception | None = None) -> None:
+        self._raise_error = raise_error
+
+    def raise_for_status(self) -> None:
+        if self._raise_error is not None:
+            raise self._raise_error
