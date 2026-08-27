@@ -31,6 +31,11 @@ from tracker.models import RepoConfig
 _UPSTREAM_REMOTE = "upstream"
 _GITHUB_HTTPS = "https://github.com/"
 
+# Throwaway committer identity for the trial-merge commit (repo-local, never
+# pushed). Only needed so ``git merge --no-ff`` can record the merge commit.
+_BOT_EMAIL = "release-tracker-bot@users.noreply.github.com"
+_BOT_NAME = "release-tracker-bot"
+
 
 def _authed_url(url: str, token: str | None) -> str:
     """Embed ``token`` into a github.com HTTPS URL for private-fork access.
@@ -94,6 +99,14 @@ def trial_merge(dest: str, upstream_url: str, tag: str) -> dict:
 
     def _record(step: str, proc: subprocess.CompletedProcess) -> None:
         log.append(f"$ {step}\n{proc.stdout}{proc.stderr}".rstrip())
+
+    # A no-ff merge records a merge commit, which git refuses to prepare without
+    # a committer identity. Runners have none configured, so set a throwaway,
+    # repo-local identity on the clone (never global, never pushed). Without this
+    # the merge fails with "empty ident name not allowed" and is misclassified as
+    # an 'error' rather than yielding its true clean/conflict result.
+    _record("git config user.email", _git(dest, "config", "user.email", _BOT_EMAIL))
+    _record("git config user.name", _git(dest, "config", "user.name", _BOT_NAME))
 
     # Point an 'upstream' remote at the source and fetch only the target tag.
     add = _git(dest, "remote", "add", _UPSTREAM_REMOTE, upstream_url)

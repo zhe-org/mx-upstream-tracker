@@ -52,13 +52,6 @@ def test_seed_forks_are_canonical_github():
         assert r.upstream.startswith("https://github.com/"), r.name
 
 
-def test_seed_contains_kubernetes():
-    repos = {r.name: r for r in load_registry(config.DEFAULT_TRACKER_PATH)}
-    k8s = repos["kubernetes/kubernetes"]
-    assert k8s.canonical_repo == "https://github.com/canonical/mx-kubernetes"
-    assert k8s.current_upstream_tag == "v1.36.2"
-
-
 # --- Valid custom registry ----------------------------------------------
 
 

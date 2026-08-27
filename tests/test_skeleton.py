@@ -15,9 +15,10 @@ from tracker.graph import build_repo_subgraph
 
 def test_settings_load_with_defaults(monkeypatch):
     monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
     settings = config.load_settings()
-    assert settings.llm_model == "gemini-2.5-pro"
-    assert settings.llm_base_url == "https://api.githubcopilot.com"
+    assert settings.llm_model == "google/gemini-2.5-pro"
+    assert settings.llm_base_url == "https://openrouter.ai/api/v1"
 
 
 def test_subgraph_compiles():

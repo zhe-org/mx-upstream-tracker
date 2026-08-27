@@ -1,7 +1,13 @@
 {
   "processed": {
-    "kubernetes/kubernetes": [
-      "v1.36.4"
+    "etcd-io/etcd": [
+      "v3.6.14"
+    ],
+    "golang/go": [
+      "go1.26.7"
+    ],
+    "kubernetes-csi/external-provisioner": [
+      "v6.2.1"
     ]
   }
 }

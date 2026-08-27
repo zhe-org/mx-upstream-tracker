@@ -111,6 +111,26 @@ def test_trial_merge_no_hunks_when_clean(monkeypatch, tmp_path: Path):
     assert result["conflict_hunks"] == ""
 
 
+def test_trial_merge_sets_committer_identity_before_merge(monkeypatch, tmp_path: Path):
+    # git refuses a no-ff merge commit without an identity; the trial merge must
+    # configure a repo-local one before merging, else a clean/conflict merge is
+    # misclassified as 'error'.
+    fake = _FakeGit({"merge": _ok(out="Merge made by the 'ort' strategy.")})
+    monkeypatch.setattr(git_ops.subprocess, "run", fake)
+
+    git_ops.trial_merge(str(tmp_path), "https://u", "v1.14.7")
+
+    config_calls = [c for c in fake.calls if c[3:4] == ["config"]]
+    keys = {c[4] for c in config_calls}
+    assert {"user.email", "user.name"} <= keys
+
+    def _index(subcommand: str) -> int:
+        return next(i for i, c in enumerate(fake.calls) if c[3:4] == [subcommand])
+
+    # Identity is set before the merge runs.
+    assert _index("config") < _index("merge")
+
+
 def test_trial_merge_error_when_fetch_fails(monkeypatch, tmp_path: Path):
     fake = _FakeGit({"fetch": _fail(err="fatal: couldn't find remote ref v9.9.9")})
     monkeypatch.setattr(git_ops.subprocess, "run", fake)

@@ -57,9 +57,11 @@ DEFAULT_STATE_PATH = state_path_for(DEFAULT_RELEASE_SET)
 class Settings:
     """Resolved runtime settings for a single tracker run."""
 
-    # LLM: GitHub Copilot exposes an OpenAI-compatible chat completions API.
-    # We authenticate with GH_TOKEN and target gemini-2.5-pro.
+    # LLM: OpenRouter exposes an OpenAI-compatible chat completions API. We
+    # authenticate with OPENROUTER_API_KEY and target google/gemini-2.5-pro.
+    # GH_TOKEN is still used, but only for the GitHub REST API + fork clone.
     gh_token: str | None
+    openrouter_api_key: str | None
     llm_base_url: str
     llm_model: str
     llm_temperature: float
@@ -82,6 +84,14 @@ class Settings:
             )
         return self.gh_token
 
+    def require_openrouter_key(self) -> str:
+        if not self.openrouter_api_key:
+            raise RuntimeError(
+                "OPENROUTER_API_KEY is not set. Export it locally (see .env.example) "
+                "or provide it as a GitHub Actions secret."
+            )
+        return self.openrouter_api_key
+
 
 def load_settings() -> Settings:
     """Build :class:`Settings` from the current environment.
@@ -97,8 +107,9 @@ def load_settings() -> Settings:
 
     return Settings(
         gh_token=os.getenv("GH_TOKEN"),
-        llm_base_url=os.getenv("LLM_BASE_URL", "https://api.githubcopilot.com"),
-        llm_model=os.getenv("LLM_MODEL", "gemini-2.5-pro"),
+        openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
+        llm_base_url=os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
+        llm_model=os.getenv("LLM_MODEL", "google/gemini-2.5-pro"),
         llm_temperature=float(os.getenv("LLM_TEMPERATURE", "0.0")),
         tracker_path=Path(os.getenv("TRACKER_PATH", str(tracker_default))),
         state_path=Path(os.getenv("STATE_PATH", str(state_default))),
