@@ -1,10 +1,7 @@
 {
   "processed": {
-    "kubernetes-csi/external-provisioner": [
-      "v6.2.1"
-    ],
-    "kubernetes/autoscaler": [
-      "cluster-autoscaler-1.36.1"
+    "golang/go": [
+      "go1.26.8"
     ]
   }
 }
