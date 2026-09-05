@@ -1,7 +1,7 @@
 {
   "processed": {
-    "golang/go": [
-      "go1.26.8"
+    "containerd/containerd": [
+      "v2.3.5"
     ]
   }
 }
