@@ -22,3 +22,9 @@ repos:
     canonical_repo: https://github.com/canonical/mx-kubernetes
     canonical_branch: canonical/1.37/candidate
     current_upstream_tag: v1.37.0
+  
+  - name: kubernetes-sigs/cri-tools
+    upstream: https://github.com/kubernetes-sigs/cri-tools/
+    canonical_repo: https://github.com/canonical/mx-k8s-sigs-cri-tools
+    canonical_branch: canonical/1.37/candidate
+    current_upstream_tag: v1.37.0
