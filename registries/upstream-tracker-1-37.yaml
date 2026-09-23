@@ -15,14 +15,14 @@ repos:
     upstream: https://github.com/etcd-io/etcd
     canonical_repo: https://github.com/canonical/mx-etcd
     canonical_branch: canonical/3.7/candidate
-    current_upstream_tag: v3.7.1
+    current_upstream_tag: v3.7.2
 
   - name: kubernetes/kubernetes
     upstream: https://github.com/kubernetes/kubernetes
     canonical_repo: https://github.com/canonical/mx-kubernetes
     canonical_branch: canonical/1.37/candidate
     current_upstream_tag: v1.37.0
-  
+
   - name: kubernetes-sigs/cri-tools
     upstream: https://github.com/kubernetes-sigs/cri-tools/
     canonical_repo: https://github.com/canonical/mx-k8s-sigs-cri-tools
