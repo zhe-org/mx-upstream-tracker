@@ -27,7 +27,7 @@ repos:
     upstream: https://github.com/etcd-io/etcd
     canonical_repo: https://github.com/canonical/mx-etcd
     canonical_branch: canonical/3.6-26.04/stable
-    current_upstream_tag: v3.6.14
+    current_upstream_tag: v3.6.15
 
   - name: golang/go
     upstream: https://github.com/golang/go
