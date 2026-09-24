@@ -1,7 +1,7 @@
 {
   "processed": {
-    "etcd-io/etcd": [
-      "v3.7.2"
+    "kubernetes/kubernetes": [
+      "v1.37.1"
     ]
   }
 }
