@@ -9,7 +9,7 @@ repos:
     upstream: https://github.com/containerd/containerd
     canonical_repo: https://github.com/canonical/mx-containerd
     canonical_branch: canonical/2.3/stable
-    current_upstream_tag: v2.3.5
+    current_upstream_tag: v2.3.6
 
   - name: opencontainers/runc
     upstream: https://github.com/opencontainers/runc

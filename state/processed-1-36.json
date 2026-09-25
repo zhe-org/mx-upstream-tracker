@@ -1,7 +1,7 @@
 {
   "processed": {
-    "kubernetes/kubernetes": [
-      "v1.36.5"
+    "containerd/containerd": [
+      "v2.3.6"
     ]
   }
 }
