@@ -9,7 +9,7 @@ repos:
     upstream: https://github.com/containerd/containerd
     canonical_repo: https://github.com/canonical/mx-containerd
     canonical_branch: canonical/2.0/stable
-    current_upstream_tag: v2.0.12
+    current_upstream_tag: v2.0.13
 
   - name: kubernetes/autoscaler
     upstream: https://github.com/kubernetes/autoscaler
