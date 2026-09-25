@@ -16,11 +16,11 @@ called "mixed sources" and live in repos named mx-<component> (e.g.
 mx-kubernetes, mx-coredns, mx-containerd). Canonical mirrors upstream into these
 repos, patches and security-maintains them, and delivers releases to VMware.
 
-We currently maintain Kubernetes v1.33 through v1.36 (v1.37 will be added when it
-is released). When upstream cuts a new patch release on a track we support, we
-merge the new upstream tag into our stable release branch, cut a Canonical tag,
-run tests, and deliver it. This tracker automates the *review* of each new
-upstream tag; it does NOT perform the real merge.
+We currently maintain Kubernetes v1.33 through v1.37. When upstream cuts a new
+patch release on a track we support, we merge the new upstream tag into our
+stable release branch, cut a Canonical tag, run tests, and deliver it. This
+tracker automates the *review* of each new upstream tag; it does NOT perform the
+real merge.
 
 Components under this program: kubernetes, containerd, runc, coredns, etcd, the
 Go toolchain, CNI plugins, cluster-autoscaler (a monorepo), cri-tools, and six
@@ -29,10 +29,14 @@ external-snapshotter, livenessprobe, node-driver-registrar).
 
 Branching model (context for conflicts):
 - canonical/main mirrors the upstream main branch.
-- Release branches are canonical/<major>.<minor>-<series>/<risk>, where
-  <major>.<minor> is the upstream version (the track), <series> is the Ubuntu /
-  Superdistro series (e.g. 26.04), and <risk> is edge < beta < candidate <
-  stable. Only `stable` is supported and security-maintained.
+- Release branches are canonical/<major>.<minor>/<risk>, where <major>.<minor> is
+  the upstream version of the component (its track — e.g. canonical/1.14/stable
+  on mx-coredns, canonical/2.3/stable on mx-containerd), and <risk> is
+  edge < beta < candidate < stable. Only `stable` is supported and
+  security-maintained.
+- A component's track is pinned per Kubernetes release set, so the same fork can
+  carry several stable branches at once (e.g. mx-containerd has
+  canonical/2.0/stable for K8s 1.33 and canonical/2.3/stable for K8s 1.36).
 - stable branches are based on an upstream tag/commit with Canonical's changes
   layered ON TOP and merged (not rebased). So Canonical's local patches are
   interleaved with upstream history — merge conflicts usually mean upstream

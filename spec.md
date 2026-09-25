@@ -61,9 +61,17 @@ repo at once. Each set is a version-controlled registry
 (`registries/upstream-tracker-<set>.yaml`) plus a processed-tag snapshot
 (`state/processed-<set>.json`). The set is chosen by the CLI argument
 (`python -m tracker.main 1.36`), and the nightly workflow runs a **matrix** over
-the sets that have a registry (currently `1.36` and `1.37`; adding `1.33`–`1.35`
-is a one-line change). This keeps each run focused and lets component versions
-differ per Kubernetes line.
+the sets that have a registry (currently `1.33`–`1.37`; adding one is a new
+registry file plus a matrix entry, kept in sync by
+`tests/test_shipped_registries.py`). This keeps each run focused and lets
+component versions differ per Kubernetes line.
+
+Sets overlap: a component whose track did not move between two Kubernetes lines
+(e.g. coredns `1.12` across 1.33 and 1.34) is the *same* fork branch. Such a
+component is listed **only in the newest set that uses it**, so a branch is
+never trial-merged, reported, and bumped twice in one night. That is why the
+older sets' registries are shorter — the missing entries are the ones a newer
+set already owns, not gaps in coverage.
 
 ## Architecture
 

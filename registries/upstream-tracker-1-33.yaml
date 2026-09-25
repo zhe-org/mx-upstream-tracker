@@ -1,0 +1,30 @@
+repos:
+  - name: containernetworking/plugins
+    upstream: https://github.com/containernetworking/plugins
+    canonical_repo: https://github.com/canonical/mx-containernetworking-plugins
+    canonical_branch: canonical/1.6/stable
+    current_upstream_tag: v1.6.2
+
+  - name: containerd/containerd
+    upstream: https://github.com/containerd/containerd
+    canonical_repo: https://github.com/canonical/mx-containerd
+    canonical_branch: canonical/2.0/stable
+    current_upstream_tag: v2.0.12
+
+  - name: kubernetes/autoscaler
+    upstream: https://github.com/kubernetes/autoscaler
+    canonical_repo: https://github.com/canonical/mx-k8s-autoscaler
+    canonical_branch: canonical/1.33/stable
+    current_upstream_tag: cluster-autoscaler-1.33.6
+
+  - name: kubernetes-sigs/cri-tools
+    upstream: https://github.com/kubernetes-sigs/cri-tools
+    canonical_repo: https://github.com/canonical/mx-k8s-sigs-cri-tools
+    canonical_branch: canonical/1.33/stable
+    current_upstream_tag: v1.33.0
+
+  - name: kubernetes/kubernetes
+    upstream: https://github.com/kubernetes/kubernetes
+    canonical_repo: https://github.com/canonical/mx-kubernetes
+    canonical_branch: canonical/1.33/stable
+    current_upstream_tag: v1.33.13

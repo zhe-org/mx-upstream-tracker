@@ -27,7 +27,7 @@ def _repo(tag: str = "v1.36.5") -> RepoConfig:
         name="kubernetes/kubernetes",
         upstream="https://github.com/kubernetes/kubernetes",
         canonical_repo="https://github.com/canonical/mx-kubernetes",
-        canonical_branch="canonical/1.36-26.04/stable",
+        canonical_branch="canonical/1.36/stable",
         current_upstream_tag=tag,
     )
 

@@ -24,7 +24,7 @@ def _valid_entry(**overrides) -> dict:
         "name": "coredns/coredns",
         "upstream": "https://github.com/coredns/coredns",
         "canonical_repo": "https://github.com/canonical/mx-coredns",
-        "canonical_branch": "canonical/1.14-26.04/stable",
+        "canonical_branch": "canonical/1.14/stable",
         "current_upstream_tag": "v1.14.6",
     }
     entry.update(overrides)

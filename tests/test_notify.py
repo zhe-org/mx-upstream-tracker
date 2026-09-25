@@ -28,7 +28,7 @@ def _repo(name: str, tag: str) -> RepoConfig:
         name=name,
         upstream=f"https://github.com/{name}",
         canonical_repo=f"https://github.com/canonical/mx-{name.replace('/', '-')}",
-        canonical_branch="canonical/x-26.04/stable",
+        canonical_branch="canonical/x/stable",
         current_upstream_tag=tag,
     )
 

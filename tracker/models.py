@@ -29,8 +29,8 @@ class RepoConfig(BaseModel):
     - ``upstream``        — upstream GitHub URL we watch for new tags.
     - ``canonical_repo``  — our Canonical fork (GitHub), e.g.
       ``https://github.com/canonical/mx-coredns``.
-    - ``canonical_branch``— the fork's release branch, e.g.
-      ``canonical/1.14-26.04/stable``.
+    - ``canonical_branch``— the fork's release branch,
+      ``canonical/<major>.<minor>/<risk>`` (e.g. ``canonical/1.14/stable``).
     - ``current_upstream_tag`` — the newest upstream tag our fork currently
       sits on; the baseline the orchestrator diffs new upstream tags against.
       The tracked line is implied by this tag (e.g. ``v1.14.6`` ⇒ we track

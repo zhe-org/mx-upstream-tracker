@@ -19,13 +19,14 @@ jobs:
     permissions:
       contents: write   # to commit updated registry + state snapshot
     strategy:
-      # One job per K8s release set. Add "1.33"–"1.35" here as their registries
-      # land (registries/upstream-tracker-<set>.yaml).
+      # One job per K8s release set, one registry each
+      # (registries/upstream-tracker-<set>.yaml). Keep this list in sync with
+      # registries/ — tests/test_shipped_registries.py fails CI if it drifts.
       matrix:
-        release_set: ["1.36", "1.37"]
+        release_set: ["1.33", "1.34", "1.35", "1.36", "1.37"]
       # A failing set must not cancel the others.
       fail-fast: false
-      # Serialize so the two jobs' registry/state commits never race on a
+      # Serialize so the sets' registry/state commits never race on a
       # concurrent push (each job checks out after the previous one's push).
       max-parallel: 1
     env:
