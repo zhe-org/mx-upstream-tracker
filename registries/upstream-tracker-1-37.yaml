@@ -9,7 +9,7 @@ repos:
     upstream: https://github.com/opencontainers/runc
     canonical_repo: https://github.com/canonical/mx-opencontainers-runc
     canonical_branch: canonical/1.5/beta
-    current_upstream_tag: v1.5.1
+    current_upstream_tag: v1.5.2
 
   - name: etcd-io/etcd
     upstream: https://github.com/etcd-io/etcd
