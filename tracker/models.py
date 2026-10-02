@@ -31,13 +31,11 @@ class RepoConfig(BaseModel):
       ``https://github.com/canonical/mx-coredns``.
     - ``canonical_branch``— the fork's release branch,
       ``canonical/<major>.<minor>/<risk>`` (e.g. ``canonical/1.14/stable``).
-    - ``current_upstream_tag`` — the newest upstream tag our fork currently
-      sits on; the baseline the orchestrator diffs new upstream tags against.
-      The tracked line is implied by this tag (e.g. ``v1.14.6`` ⇒ we track
-      ``v1.14.*``). Since v1 does no real merge, the finalize step bumps this
-      to the newest reported tag at the end of a run (assuming it will be
-      merged before the next upstream tag lands), so the next run starts from
-      the advanced baseline.
+    - ``current_upstream_tag`` — the newest upstream tag the fork branch has
+      incorporated; the baseline the orchestrator diffs new upstream tags
+      against. Not stored in the registry: :func:`tracker.registry.resolve_baselines`
+      reads it from ``canonical/upstream-version`` in the fork branch at run
+      time. The tracked line is implied by it (e.g. ``v1.14.6`` ⇒ ``v1.14.*``).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -46,7 +44,7 @@ class RepoConfig(BaseModel):
     upstream: str
     canonical_repo: str
     canonical_branch: str
-    current_upstream_tag: str
+    current_upstream_tag: str = ""
 
 
 class TrialMerge(BaseModel):

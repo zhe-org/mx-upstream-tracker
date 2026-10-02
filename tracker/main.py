@@ -9,7 +9,7 @@ every downstream ``load_settings()`` call resolves the same paths.
 The run discovers new tags, runs the per-repo sub-graph (preflight gate +
 analyzer deep-dive), renders the report (markdown + JSON + TL;DR), and writes
 ``report.md`` / ``report.json`` / ``meta.json`` to the artifact dir for the
-Pages site to publish. Finalize then advances the registry baseline.
+Pages site to publish. Finalize then records the reported tags.
 """
 
 from __future__ import annotations
@@ -105,12 +105,9 @@ def main(argv: list[str] | None = None) -> None:
     print(report["tldr"])
     print(f"Wrote report.md, report.json, meta.json to {settings.artifact_dir}.")
 
-    finalize_run(state.get("repos", []), findings, settings)
+    finalize_run(findings, settings)
     if findings:
-        print(
-            f"Reported {len(findings)} repo(s). Updated {settings.state_path.name} snapshot "
-            f"and advanced current_upstream_tag in {settings.tracker_path.name}."
-        )
+        print(f"Reported {len(findings)} repo(s). Updated {settings.state_path.name} snapshot.")
 
 
 if __name__ == "__main__":

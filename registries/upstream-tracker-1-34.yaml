@@ -3,34 +3,28 @@ repos:
     upstream: https://github.com/containernetworking/plugins
     canonical_repo: https://github.com/canonical/mx-containernetworking-plugins
     canonical_branch: canonical/1.7/stable
-    current_upstream_tag: v1.7.1
 
   - name: containerd/containerd
     upstream: https://github.com/containerd/containerd
     canonical_repo: https://github.com/canonical/mx-containerd
     canonical_branch: canonical/2.1/stable
-    current_upstream_tag: v2.1.9
 
   - name: coredns/coredns
     upstream: https://github.com/coredns/coredns
     canonical_repo: https://github.com/canonical/mx-coredns
     canonical_branch: canonical/1.12/stable
-    current_upstream_tag: v1.12.4
 
   - name: kubernetes/autoscaler
     upstream: https://github.com/kubernetes/autoscaler
     canonical_repo: https://github.com/canonical/mx-k8s-autoscaler
     canonical_branch: canonical/1.34/stable
-    current_upstream_tag: cluster-autoscaler-1.34.5
 
   - name: kubernetes-sigs/cri-tools
     upstream: https://github.com/kubernetes-sigs/cri-tools
     canonical_repo: https://github.com/canonical/mx-k8s-sigs-cri-tools
     canonical_branch: canonical/1.34/stable
-    current_upstream_tag: v1.34.0
 
   - name: kubernetes/kubernetes
     upstream: https://github.com/kubernetes/kubernetes
     canonical_repo: https://github.com/canonical/mx-kubernetes
     canonical_branch: canonical/1.34/stable
-    current_upstream_tag: v1.34.12

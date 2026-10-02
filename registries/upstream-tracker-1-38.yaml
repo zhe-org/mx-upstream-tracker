@@ -3,4 +3,3 @@ repos:
     upstream: https://github.com/kubernetes/kubernetes
     canonical_repo: https://github.com/canonical/mx-kubernetes
     canonical_branch: canonical/1.38/edge
-    current_upstream_tag: v1.38.0-alpha.1

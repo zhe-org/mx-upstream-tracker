@@ -11,7 +11,6 @@ from tracker.assembler import clean_tag_finding
 from tracker.finalize import finalize_run
 from tracker.graph import _worker_count, dispatch, run_repo_subgraph
 from tracker.models import EvidenceBundle, Finding, RepoConfig, RepoJob, TrialMerge
-from tracker.registry import load_registry
 
 
 def _fake_preflight(monkeypatch) -> None:
@@ -142,14 +141,8 @@ def test_worker_count_never_below_one():
 # --- finalize_run --------------------------------------------------------
 
 
-def test_finalize_writes_snapshot_and_bumps_registry(tmp_path: Path):
+def test_finalize_writes_snapshot(tmp_path: Path):
     settings = _settings(tmp_path)
-    repos = [_repo("coredns/coredns", "v1.14.6"), _repo("etcd-io/etcd", "v3.6.13")]
-    # Seed the registry file so finalize can rewrite it.
-    from tracker.registry import save_registry
-
-    save_registry(settings.tracker_path, repos)
-
     findings = [
         Finding(
             repo=_repo("coredns/coredns", "v1.14.6"),
@@ -160,23 +153,15 @@ def test_finalize_writes_snapshot_and_bumps_registry(tmp_path: Path):
         ),
     ]
 
-    finalize_run(repos, findings, settings)
+    finalize_run(findings, settings)
 
-    # processed.json is a snapshot of exactly what was reported.
     import json
 
     snapshot = json.loads(settings.state_path.read_text())["processed"]
     assert snapshot == {"coredns/coredns": ["v1.14.7", "v1.14.8"]}
 
-    # current_upstream_tag advanced to the newest reported tag; others untouched.
-    reloaded = {r.name: r for r in load_registry(settings.tracker_path)}
-    assert reloaded["coredns/coredns"].current_upstream_tag == "v1.14.8"
-    assert reloaded["etcd-io/etcd"].current_upstream_tag == "v3.6.13"
-
 
 def test_finalize_quiet_run_is_noop(tmp_path: Path):
     settings = _settings(tmp_path)
-    repos = [_repo("coredns/coredns", "v1.14.6")]
-    finalize_run(repos, [], settings)
+    finalize_run([], settings)
     assert not settings.state_path.exists()
-    assert not settings.tracker_path.exists()
