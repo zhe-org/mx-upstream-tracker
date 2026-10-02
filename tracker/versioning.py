@@ -117,6 +117,20 @@ def select_new_tags(current_ref: str, candidates: Iterable[str]) -> list[str]:
     return [p.raw for p in matched]
 
 
+def scan_floor(baseline: str, last_scanned: str | None) -> str:
+    """The tag discovery must exceed: the newer of baseline and watermark.
+
+    The watermark only counts when it is on the baseline's line (a fork moving
+    to a new line, or a stale entry, falls back to the baseline).
+    """
+
+    base = _require(baseline)
+    last = parse_ref(last_scanned) if last_scanned else None
+    if last is not None and last.line == base.line and last.version > base.version:
+        return last.raw
+    return baseline
+
+
 def newest_tag(tags: Iterable[str]) -> str:
     """Return the highest-versioned tag from ``tags`` (assumes same line)."""
     parsed = [p for p in (parse_ref(t) for t in tags) if p is not None]

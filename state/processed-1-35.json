@@ -1,8 +1,5 @@
 {
-  "processed": {
-    "containerd/containerd": [
-      "v2.2.8",
-      "v2.2.9"
-    ]
+  "last_scanned": {
+    "containerd/containerd": "v2.2.9"
   }
 }

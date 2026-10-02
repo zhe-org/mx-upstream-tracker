@@ -1,20 +1,19 @@
-"""Processed-tag record.
+"""Last-scanned tag per repo — the discovery watermark.
 
-A run overwrites ``processed.json`` with the tags it just reported. This is a
-**human-readable record of the last run** (handy alongside the report) — it is
-*not* used for dedup. Uniqueness is guaranteed by ``upstream-tracker.yaml``:
-the finalize step advances ``current_upstream_tag`` to the newest reported tag,
-so the next run's discovery (``select_new_tags``) never re-surfaces it.
-
-v1 uses a flat JSON file committed to the repo (simple, easy to audit in git
-history). Shape:
+Each release set keeps ``state/processed-<set>.json`` recording, per repo, the
+newest upstream tag the tracker has already reported. Discovery only surfaces
+tags newer than *both* the fork's baseline (``canonical/upstream-version``) and
+this watermark, so a tag is reported once even while the fork has not merged it
+yet. Shape::
 
     {
-      "processed": {
-        "kubernetes/kubernetes": ["v1.36.3"],
-        "coredns/coredns": ["v1.14.7"]
+      "last_scanned": {
+        "containerd/containerd": "v2.3.6",
+        "kubernetes/kubernetes": "v1.36.6"
       }
     }
+
+The file is merged, not overwritten: repos with no new tags keep their entry.
 """
 
 from __future__ import annotations
@@ -29,14 +28,18 @@ def _state_path(path: Path | None = None) -> Path:
     return path or load_settings().state_path
 
 
-def save_processed(processed: dict[str, list[str]], path: Path | None = None) -> None:
-    """Overwrite the record with ``processed`` (``repo -> [tags]``).
-
-    Replaces the file wholesale (last-run snapshot), sorting keys and tags for a
-    stable, diff-friendly on-disk form.
-    """
+def load_scanned(path: Path | None = None) -> dict[str, str]:
+    """Return ``repo -> last scanned tag`` (empty when the file does not exist)."""
 
     p = _state_path(path)
-    normalized = {repo: sorted(set(tags)) for repo, tags in processed.items()}
+    if not p.exists():
+        return {}
+    return dict(json.loads(p.read_text(encoding="utf-8")).get("last_scanned", {}))
+
+
+def save_scanned(scanned: dict[str, str], path: Path | None = None) -> None:
+    """Write ``repo -> last scanned tag`` with sorted keys (stable diffs)."""
+
+    p = _state_path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps({"processed": normalized}, indent=2, sort_keys=True) + "\n")
+    p.write_text(json.dumps({"last_scanned": scanned}, indent=2, sort_keys=True) + "\n")

@@ -1,7 +1,5 @@
 {
-  "processed": {
-    "opencontainers/runc": [
-      "v1.5.2"
-    ]
+  "last_scanned": {
+    "opencontainers/runc": "v1.5.2"
   }
 }
