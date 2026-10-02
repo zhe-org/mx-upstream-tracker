@@ -46,7 +46,7 @@ def registry_path_for(release_set: str) -> Path:
 
 
 def state_path_for(release_set: str) -> Path:
-    """Processed-tag snapshot path for ``release_set``, e.g. ``state/processed-1-36.json``."""
+    """Last-scanned watermark path for ``release_set``, e.g. ``state/processed-1-36.json``."""
     return STATE_DIR / f"processed-{slug_for(release_set)}.json"
 
 
