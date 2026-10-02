@@ -79,6 +79,9 @@ jobs:
       # PAT: pushes and the PR it opens trigger CI and the preview deployment
       # (events created with the default GITHUB_TOKEN would not).
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      # Pin gh to the repo this workflow runs in: in a fork, gh could
+      # otherwise resolve the parent repo as the PR base.
+      GH_REPO: ${{ github.repository }}
     outputs:
       found: ${{ steps.changes.outputs.found }}
       pr_url: ${{ steps.pr.outputs.url }}
@@ -130,7 +133,7 @@ jobs:
             number=$(gh pr list --head "$PR_BRANCH" --base main --state open --json number --jq '.[0].number')
           fi
           # Internal repos serve Pages from a random host, so ask the API.
-          pages=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .html_url)
+          pages=$(gh api "repos/${GH_REPO}/pages" --jq .html_url)
           {
             echo "url=$(gh pr view "$number" --json url --jq .url)"
             echo "preview_url=${pages%/}/pr-preview/pr-${number}/"
