@@ -1,64 +1,45 @@
-"""End-of-run finalize step (Milestone 2).
+"""End-of-run finalize step.
 
-Runs once, after the whole job has finished successfully. It:
+Runs once, after a run that found new tags, and persists its outcome:
 
-  1. Writes the processed-tag **snapshot** (``state/processed-<set>.json``) — a
-     record of what this run reported.
-  2. Advances ``current_upstream_tag`` in the selected release-set registry
-     (``registries/upstream-tracker-<set>.yaml``) to the newest reported tag per
-     repo, so the next nightly run starts from the advanced baseline (encoding
-     the "we'll merge it before the next upstream tag lands" assumption).
+  1. Merges the (stamped) findings into the release set's 7-day report
+     (``reports/report-<set>.json``) and drops tags older than the window.
+  2. Advances the per-repo watermark in ``state/processed-<set>.json`` to the
+     newest tag reported, so the next run does not report those tags again.
 
-Keeping this out of the graph (a post-run step) means that in M7 it naturally
-becomes "finalize only after successful delivery": we never advance the pointer
-for a report that failed to go out. A nightly job (M7) must commit the updated
-registry + state snapshot back to the repo.
+The baseline is never written back: it lives in each fork branch's
+``canonical/upstream-version``. Keeping this out of the graph (a post-run step)
+means we never persist anything for a run that failed part-way.
 """
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from tracker.config import Settings
-from tracker.models import Finding, RepoConfig
-from tracker.registry import save_registry
-from tracker.state import save_processed
+from tracker.models import Finding
+from tracker.reports import SetReport, load_report, merge, prune, save_report
+from tracker.state import load_scanned, save_scanned
 from tracker.versioning import newest_tag
 
 
-def _reported_tags(finding: Finding) -> list[str]:
-    return [entry.tag for entry in finding.new_tags]
-
-
 def finalize_run(
-    repos: list[RepoConfig],
-    findings: list[Finding],
-    settings: Settings,
+    findings: list[Finding], settings: Settings, release_set: str, now: datetime
 ) -> None:
-    """Persist the run's outcome: snapshot processed tags + bump the registry."""
+    """Persist this run's findings into the report store + advance the watermark."""
 
-    # repo name -> tags reported this run (union across duplicate-name entries).
-    snapshot: dict[str, list[str]] = {}
-    # (name, old current_upstream_tag) -> newest reported tag, to target the
-    # exact registry entry even when repo names repeat.
-    newest_by_entry: dict[tuple[str, str], str] = {}
-
-    for finding in findings:
-        tags = _reported_tags(finding)
-        if not tags:
-            continue
-        name = finding.repo.name
-        snapshot.setdefault(name, [])
-        snapshot[name].extend(tags)
-        newest_by_entry[(name, finding.repo.current_upstream_tag)] = newest_tag(tags)
-
-    if not snapshot:
+    reported = {f.repo.name: [nt.tag for nt in f.new_tags] for f in findings if f.new_tags}
+    if not reported:
         return  # quiet run: nothing reported, nothing to persist.
 
-    save_processed(snapshot, settings.state_path)
+    stored = load_report(settings.reports_path)
+    kept = prune(merge(stored.findings if stored else [], findings), now)
+    save_report(
+        settings.reports_path,
+        SetReport(release_set, now.isoformat(timespec="seconds"), kept),
+    )
 
-    updated: list[RepoConfig] = []
-    for repo in repos:
-        key = (repo.name, repo.current_upstream_tag)
-        if key in newest_by_entry:
-            repo = repo.model_copy(update={"current_upstream_tag": newest_by_entry[key]})
-        updated.append(repo)
-    save_registry(settings.tracker_path, updated)
+    scanned = load_scanned(settings.state_path)
+    for name, tags in reported.items():
+        scanned[name] = newest_tag(tags)
+    save_scanned(scanned, settings.state_path)

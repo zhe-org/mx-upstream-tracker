@@ -1,30 +1,28 @@
 """Static site generator for the tracker's reports.
 
-Aggregates the per-release-set reports produced by :mod:`tracker.main` (each a
-``report.json`` + ``meta.json`` in its artifact folder) into a single,
-self-contained HTML page — embedded CSS + a little vanilla JS for risk filtering
-and expand/collapse — suitable for GitHub Pages.
+Renders the per-release-set report store (``reports/report-<set>.json``, see
+:mod:`tracker.reports`) into a single, self-contained HTML page — embedded CSS +
+a little vanilla JS for risk filtering and expand/collapse — suitable for
+GitHub Pages. Tags older than the 7-day retention window are dropped at build
+time, so the page stays current even when a set has not run since.
 
 The page is organised for scanning: a top overview with per-set risk counts,
 then one collapsible section per release set, each with a risk-ranked **version
-bump** table (From → To per component) and drill-down cards for the flagged
-tags. All dynamic / LLM-authored text is HTML-escaped.
+bump** table (From → To per component, plus when the tag was detected) and
+drill-down cards for the flagged tags. All dynamic / LLM-authored text is
+HTML-escaped.
 
 CLI::
 
-    python -m tracker.site <download_dir> <out_dir>
+    python -m tracker.site <reports_dir> <out_dir>
 
-``<download_dir>`` is a directory containing the downloaded per-set artifacts
-(each with ``report.json`` and ``meta.json``); ``index.html`` is written to
-``<out_dir>``.
+``index.html`` is written to ``<out_dir>``.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
-import re
-from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from html import escape
 from pathlib import Path
 
@@ -37,65 +35,9 @@ from tracker.agents.reporter import (
     release_notes_url,
 )
 from tracker.models import Finding, NewTagFinding, RepoConfig
+from tracker.reports import SetReport, load_reports, prune
 
-_DIRNAME_RE = re.compile(r"release-report-(.+)-\d+$")
 _MERGE_LABEL = {"clean": "clean", "conflict": "conflict", "error": "error"}
-
-
-@dataclass
-class SetReport:
-    """One release set's rendered inputs: its findings + metadata."""
-
-    release_set: str
-    generated_at: str | None
-    findings: list[Finding] = field(default_factory=list)
-
-
-# --- loading -------------------------------------------------------------
-
-
-def _set_from_dirname(name: str) -> str | None:
-    m = _DIRNAME_RE.match(name)
-    return m.group(1) if m else None
-
-
-def _set_sort_key(release_set: str) -> tuple:
-    try:
-        return (0, tuple(int(part) for part in release_set.split(".")))
-    except ValueError:
-        return (1, (release_set,))
-
-
-def load_reports(download_dir: str | Path) -> list[SetReport]:
-    """Load every ``report.json`` under ``download_dir`` into :class:`SetReport`s.
-
-    The release-set label and timestamp come from the sibling ``meta.json``;
-    if absent, the set is inferred from the artifact folder name. Reports are
-    returned sorted by release set (numeric where possible).
-    """
-
-    root = Path(download_dir)
-    reports: list[SetReport] = []
-    for report_json in sorted(root.glob("**/report.json")):
-        data = json.loads(report_json.read_text(encoding="utf-8"))
-        findings = [Finding.model_validate(item) for item in data.get("findings", [])]
-
-        release_set: str | None = None
-        generated_at: str | None = None
-        meta_path = report_json.parent / "meta.json"
-        if meta_path.exists():
-            meta = json.loads(meta_path.read_text(encoding="utf-8"))
-            release_set = meta.get("release_set")
-            generated_at = meta.get("generated_at_utc")
-        release_set = release_set or _set_from_dirname(report_json.parent.name) or "unknown"
-
-        reports.append(
-            SetReport(release_set=release_set, generated_at=generated_at, findings=findings)
-        )
-
-    reports.sort(key=lambda r: _set_sort_key(r.release_set))
-    return reports
-
 
 # --- small render helpers -----------------------------------------------
 
@@ -114,8 +56,17 @@ def _has_detail(tag: NewTagFinding) -> bool:
 
 
 def _newest_tag(finding: Finding) -> str:
-    # new_tags are assembled oldest -> newest, so the last is the newest.
+    # new_tags are kept oldest -> newest, so the last is the newest.
     return finding.new_tags[-1].tag if finding.new_tags else finding.repo.current_upstream_tag
+
+
+def _base(repo: RepoConfig, tag: NewTagFinding) -> str:
+    """The fork baseline ``tag`` was compared against when it was detected."""
+    return tag.baseline or repo.current_upstream_tag
+
+
+def _detected(tag: NewTagFinding) -> str:
+    return tag.detected_at.strftime("%Y-%m-%d") if tag.detected_at else ""
 
 
 # --- summary table -------------------------------------------------------
@@ -125,8 +76,8 @@ def _summary_rows(findings: list[Finding]) -> list[str]:
     rows: list[str] = []
     for finding in _ranked(findings):
         repo = finding.repo
-        base = repo.current_upstream_tag
         for tag in sorted(finding.new_tags, key=lambda t: -_RANK[t.risk]):
+            base = _base(repo, tag)
             merge = tag.preflight.trial_merge.result
             summary = escape(tag.summary.strip())
             rows.append(
@@ -139,10 +90,11 @@ def _summary_rows(findings: list[Finding]) -> list[str]:
                 + '<td class="arrow">&rarr;</td>'
                 + '<td class="ver to">'
                 + f'<a href="{escape(release_notes_url(repo, tag.tag))}">{escape(tag.tag)}</a>'
-                + f' <a class="difflink" href="{escape(compare_url(repo, tag.tag))}"'
+                + f' <a class="difflink" href="{escape(compare_url(repo, base, tag.tag))}"'
                 + ' title="View diff">diff</a></td>'
                 + f"<td>{_merge_badge(merge)}</td>"
                 + f'<td class="summary">{summary}</td>'
+                + f'<td class="detected">{escape(_detected(tag))}</td>'
                 + "</tr>"
             )
     return rows
@@ -153,7 +105,7 @@ def _summary_table(findings: list[Finding]) -> list[str]:
         '<table class="summary">',
         "<thead><tr>",
         "<th>Risk</th><th>Component</th><th>From</th><th></th><th>To</th>",
-        "<th>Trial merge</th><th>Summary</th>",
+        "<th>Trial merge</th><th>Summary</th><th>Detected</th>",
         "</tr></thead>",
         "<tbody>",
         *_summary_rows(findings),
@@ -169,7 +121,8 @@ def _tag_detail(repo: RepoConfig, tag: NewTagFinding) -> list[str]:
     out = [f'<div class="tag-detail" data-risk="{escape(tag.risk)}">']
     out.append(
         f"<h4>{escape(tag.tag)} {_risk_badge(tag.risk)} "
-        f'<a class="difflink" href="{escape(compare_url(repo, tag.tag))}">diff</a> '
+        f'<a class="difflink" href="{escape(compare_url(repo, _base(repo, tag), tag.tag))}">'
+        "diff</a> "
         f'<a class="difflink" href="{escape(release_notes_url(repo, tag.tag))}">'
         "release notes</a></h4>"
     )
@@ -292,7 +245,7 @@ def _set_section(report: SetReport) -> list[str]:
 
     if not report.findings:
         out.append(
-            '<p class="empty">No new upstream tags on any tracked line — '
+            '<p class="empty">No new upstream tags in the last 7 days — '
             "all components are up to date.</p>"
         )
         out.append("</section>")
@@ -347,7 +300,7 @@ def render_page(reports: list[SetReport]) -> str:
 
     body.append('<main class="wrap">')
     if not reports:
-        body.append('<p class="empty">No reports were produced in this run.</p>')
+        body.append('<p class="empty">No reports yet.</p>')
     else:
         body.extend(_overview(reports))
         for report in reports:
@@ -369,13 +322,17 @@ def render_page(reports: list[SetReport]) -> str:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="tracker.site",
-        description="Render the combined HTML report site from per-set artifacts.",
+        description="Render the combined HTML report site from the report store.",
     )
-    parser.add_argument("download_dir", help="Directory of downloaded per-set report artifacts.")
+    parser.add_argument("reports_dir", help="Directory holding report-<set>.json files.")
     parser.add_argument("out_dir", help="Output directory for the generated site.")
     args = parser.parse_args(argv)
 
-    reports = load_reports(args.download_dir)
+    now = datetime.now(UTC)
+    reports = [
+        SetReport(r.release_set, r.generated_at, prune(r.findings, now))
+        for r in load_reports(args.reports_dir)
+    ]
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "index.html").write_text(render_page(reports), encoding="utf-8")
@@ -476,6 +433,7 @@ td.ver { white-space: nowrap; }
 td.ver.from { color: var(--muted); }
 td.arrow { color: var(--muted); padding: 9px 2px; text-align: center; }
 td.summary { color: #40464d; }
+td.detected { color: var(--muted); white-space: nowrap; font-size: 12px; }
 .difflink { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; margin-left: 4px; }
 .difflink:hover { border-color: var(--accent); text-decoration: none; }
 

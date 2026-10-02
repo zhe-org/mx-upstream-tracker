@@ -1,13 +1,13 @@
 """Mattermost notification (Milestone 7 delivery).
 
-After a nightly run publishes the combined GitHub Pages report, this module
-posts one brief message to a Mattermost channel via an **incoming webhook**,
-listing the components that got new tags and linking to the deployed page.
+After a nightly run finds new tags, the workflow opens/updates the rolling
+tracker PR and deploys its dashboard preview; this module then posts one brief
+message to a Mattermost channel via an **incoming webhook**, listing the
+components that got new tags and linking the PR's dashboard preview and the PR.
 
-It reuses :func:`tracker.site.load_reports` so the notifier consumes exactly the
-same per-release-set artifacts (``report.json`` + ``meta.json``) the site
-generator does — one consolidated message across every set, posted after the
-Pages deploy so the link is live.
+It reads this run's per-release-set reports (``report-<set>.json`` artifacts
+written by :mod:`tracker.main`, new tags only) via
+:func:`tracker.reports.load_reports` — one consolidated message across every set.
 
 Delivery is deliberately decoupled from :class:`tracker.config.Settings`: the
 webhook URL is read straight from ``MATTERMOST_WEBHOOK_URL``. If that secret is
@@ -16,10 +16,7 @@ set), the notifier is a clean no-op — it never fails the workflow.
 
 CLI::
 
-    python -m tracker.notify <download_dir> --page-url <url>
-
-``<download_dir>`` is the directory of downloaded per-set report artifacts (the
-same input the site generator takes).
+    python -m tracker.notify <artifacts_dir> --preview-url <url> --pr-url <url>
 """
 
 from __future__ import annotations
@@ -31,7 +28,8 @@ import httpx
 
 from tracker.agents.reporter import _RISK_ORDER, _risk_counts
 from tracker.models import Finding
-from tracker.site import SetReport, _newest_tag, load_reports
+from tracker.reports import SetReport, load_reports
+from tracker.site import _newest_tag
 
 WEBHOOK_ENV = "MATTERMOST_WEBHOOK_URL"
 _POST_TIMEOUT = 30.0
@@ -51,7 +49,9 @@ def _risk_tally(findings: list[Finding]) -> str:
     return ", ".join(f"{counts[risk]} {risk}" for risk in _RISK_ORDER)
 
 
-def build_message(reports: list[SetReport], page_url: str | None) -> str | None:
+def build_message(
+    reports: list[SetReport], preview_url: str | None, pr_url: str | None = None
+) -> str | None:
     """Build the Mattermost markdown message, or ``None`` on a quiet run.
 
     A "quiet run" is one where no release set has any component with new tags;
@@ -75,10 +75,12 @@ def build_message(reports: list[SetReport], page_url: str | None) -> str | None:
             lines.append(_component_line(finding))
         lines.append("")
 
-    footer = f"Risk: {_risk_tally(all_findings)}"
-    if page_url:
-        footer += f" · [View full report]({page_url})"
-    lines.append(footer)
+    footer = [f"Risk: {_risk_tally(all_findings)}"]
+    if preview_url:
+        footer.append(f"[Dashboard preview]({preview_url})")
+    if pr_url:
+        footer.append(f"[Pull request]({pr_url})")
+    lines.append(" · ".join(footer))
 
     return "\n".join(lines)
 
@@ -101,14 +103,11 @@ def main(argv: list[str] | None = None) -> None:
         description="Post a brief Mattermost notification for the nightly report.",
     )
     parser.add_argument(
-        "download_dir",
-        help="Directory of downloaded per-set report artifacts (report.json + meta.json).",
+        "artifacts_dir",
+        help="Directory of this run's per-set report artifacts (report-<set>.json).",
     )
-    parser.add_argument(
-        "--page-url",
-        default=None,
-        help="URL of the deployed report page to link to.",
-    )
+    parser.add_argument("--preview-url", default=None, help="Dashboard preview URL of the PR.")
+    parser.add_argument("--pr-url", default=None, help="URL of the rolling tracker PR.")
     args = parser.parse_args(argv)
 
     webhook = os.getenv(WEBHOOK_ENV)
@@ -116,8 +115,8 @@ def main(argv: list[str] | None = None) -> None:
         print(f"{WEBHOOK_ENV} is not set; skipping Mattermost notification.")
         return
 
-    reports = load_reports(args.download_dir)
-    message = build_message(reports, args.page_url)
+    reports = load_reports(args.artifacts_dir)
+    message = build_message(reports, args.preview_url, args.pr_url)
     if message is None:
         print("Quiet run: no new tags on any set; nothing to notify.")
         return

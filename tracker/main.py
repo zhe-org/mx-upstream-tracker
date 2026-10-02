@@ -2,29 +2,31 @@
 
 A single run targets one K8s **release set**, given as the required positional
 argument in dot form (e.g. ``python -m tracker.main 1.36``). That selects the
-registry ``registries/upstream-tracker-1-36.yaml`` and the snapshot
-``state/processed-1-36.json``; the argument is exported as ``RELEASE_SET`` so
-every downstream ``load_settings()`` call resolves the same paths.
+registry ``registries/upstream-tracker-1-36.yaml``, the watermark
+``state/processed-1-36.json`` and the report ``reports/report-1-36.json``; the
+argument is exported as ``RELEASE_SET`` so every downstream ``load_settings()``
+call resolves the same paths.
 
-The run discovers new tags, runs the per-repo sub-graph (preflight gate +
-analyzer deep-dive), renders the report (markdown + JSON + TL;DR), and writes
-``report.md`` / ``report.json`` / ``meta.json`` to the artifact dir for the
-Pages site to publish. Finalize then advances the registry baseline.
+The run discovers new tags and runs the per-repo sub-graph (preflight gate +
+analyzer deep-dive). When it finds new tags it writes this run's findings to
+``<artifact_dir>/report-<set>.json`` (feeds the notification), then finalize
+merges them into the 7-day report and advances the watermark. A quiet run
+writes nothing.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
 import sys
 from datetime import UTC, datetime
 
 from tracker.agents.reporter import reporter_node
-from tracker.config import REGISTRIES_DIR, load_settings, registry_path_for
+from tracker.config import REGISTRIES_DIR, load_settings, registry_path_for, report_filename
 from tracker.finalize import finalize_run
 from tracker.graph import run_orchestrator
+from tracker.reports import SetReport, save_report, stamp
 from tracker.versioning import line_label
 
 # A release set is a K8s minor line in dot form, e.g. "1.36".
@@ -77,40 +79,25 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     state = run_orchestrator()
-    findings = state.get("findings", [])
+    print(reporter_node(state)["tldr"])
 
-    if findings:
-        for finding in findings:
-            tags = ", ".join(entry.tag for entry in finding.new_tags)
-            line = line_label(finding.repo.current_upstream_tag)
-            print(f"  {finding.repo.name} ({line}): {tags}")
-    else:
-        print("Quiet run: no new upstream tags on any tracked line.")
+    now = datetime.now(UTC)
+    findings = stamp(state.get("findings", []), now)
+    if not findings:
+        print("Quiet run: nothing written.")
+        return
 
-    # Always render + write the report (markdown + JSON + TL;DR + meta), even on
-    # a quiet run, so the published site has current content for every set. The
-    # sibling meta.json lets the site generator label the set and show when it
-    # was last updated.
-    report = reporter_node(state)
-    settings.artifact_dir.mkdir(parents=True, exist_ok=True)
-    (settings.artifact_dir / "report.md").write_text(report["report_markdown"], encoding="utf-8")
-    (settings.artifact_dir / "report.json").write_text(report["report_json"], encoding="utf-8")
-    meta = {
-        "release_set": release_set,
-        "generated_at_utc": datetime.now(UTC).isoformat(timespec="seconds"),
-    }
-    (settings.artifact_dir / "meta.json").write_text(
-        json.dumps(meta, indent=2) + "\n", encoding="utf-8"
+    for finding in findings:
+        tags = ", ".join(entry.tag for entry in finding.new_tags)
+        line = line_label(finding.repo.current_upstream_tag)
+        print(f"  {finding.repo.name} ({line}): {tags}")
+
+    run_report = settings.artifact_dir / report_filename(release_set)
+    save_report(run_report, SetReport(release_set, now.isoformat(timespec="seconds"), findings))
+    finalize_run(findings, settings, release_set, now)
+    print(
+        f"Wrote {run_report}; updated {settings.reports_path.name} and {settings.state_path.name}."
     )
-    print(report["tldr"])
-    print(f"Wrote report.md, report.json, meta.json to {settings.artifact_dir}.")
-
-    finalize_run(state.get("repos", []), findings, settings)
-    if findings:
-        print(
-            f"Reported {len(findings)} repo(s). Updated {settings.state_path.name} snapshot "
-            f"and advanced current_upstream_tag in {settings.tracker_path.name}."
-        )
 
 
 if __name__ == "__main__":

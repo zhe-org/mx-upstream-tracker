@@ -1,8 +1,9 @@
 """Mattermost notification tests (Milestone 7 delivery).
 
-The notifier aggregates the per-release-set reports (the same ``report.json`` +
-``meta.json`` artifacts the site generator consumes), builds one brief markdown
-message listing the components with new tags, and POSTs it to a Mattermost
+The notifier aggregates this run's per-release-set reports (the
+``report-<set>.json`` artifacts written by ``tracker.main``), builds one brief
+markdown message listing the components with new tags, and POSTs it to a
+Mattermost
 incoming webhook. Tests are fully offline: message building is pure, and the
 HTTP POST is monkeypatched. They pin: the component list (From -> To per
 component grouped by set), the risk tally, the report link, the quiet-run
@@ -11,16 +12,16 @@ component grouped by set), the risk tally, the report link, the quiet-run
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from tracker import notify
-from tracker.agents.reporter import render_json
 from tracker.assembler import clean_tag_finding, flagged_preflight_finding
 from tracker.models import Finding, RepoConfig, TrialMerge
-from tracker.site import SetReport, load_reports
+from tracker.reports import SetReport, save_report
 
-PAGE_URL = "https://canonical.github.io/k8s-upstream-tracker/"
+# Internal-repo Pages URLs carry a random host, not <org>.github.io/<repo>.
+PREVIEW_URL = "https://fluffy-adventure-4m5qz8.pages.github.io/pr-preview/pr-42/"
+PR_URL = "https://github.com/canonical/mx-upstream-tracker/pull/42"
 
 
 def _repo(name: str, tag: str) -> RepoConfig:
@@ -71,7 +72,7 @@ def test_build_message_lists_components_grouped_by_set_with_link():
         SetReport("1.37", "2026-08-27T09:00:00+00:00", [_high()]),
     ]
 
-    msg = notify.build_message(reports, PAGE_URL)
+    msg = notify.build_message(reports, PREVIEW_URL, PR_URL)
 
     assert msg is not None
     # Component count across all sets (3 findings = 3 components with new tags).
@@ -88,8 +89,9 @@ def test_build_message_lists_components_grouped_by_set_with_link():
     assert "1 high" in msg
     assert "1 medium" in msg
     assert "1 low" in msg
-    # Report link present.
-    assert PAGE_URL in msg
+    # Preview dashboard + PR links present.
+    assert f"[Dashboard preview]({PREVIEW_URL})" in msg
+    assert f"[Pull request]({PR_URL})" in msg
 
 
 def test_build_message_quiet_run_returns_none():
@@ -97,14 +99,15 @@ def test_build_message_quiet_run_returns_none():
         SetReport("1.36", None, []),
         SetReport("1.37", None, []),
     ]
-    assert notify.build_message(reports, PAGE_URL) is None
+    assert notify.build_message(reports, PREVIEW_URL, PR_URL) is None
 
 
-def test_build_message_without_page_url_omits_link():
+def test_build_message_without_urls_omits_links():
     reports = [SetReport("1.37", None, [_high()])]
-    msg = notify.build_message(reports, None)
+    msg = notify.build_message(reports, None, None)
     assert msg is not None
-    assert "View full report" not in msg
+    assert "Dashboard preview" not in msg
+    assert "Pull request" not in msg
 
 
 def test_build_message_skips_empty_sets_in_body():
@@ -112,7 +115,7 @@ def test_build_message_skips_empty_sets_in_body():
         SetReport("1.36", None, []),  # quiet set: no header
         SetReport("1.37", None, [_high()]),
     ]
-    msg = notify.build_message(reports, PAGE_URL)
+    msg = notify.build_message(reports, PREVIEW_URL, PR_URL)
     assert msg is not None
     assert "Kubernetes 1.36" not in msg
     assert "Kubernetes 1.37" in msg
@@ -157,12 +160,9 @@ def test_post_message_raises_on_http_error(monkeypatch):
 
 
 def _write_set(root: Path, release_set: str, findings: list[Finding]) -> None:
-    d = root / f"release-report-{release_set}-7"
-    d.mkdir(parents=True)
-    (d / "report.json").write_text(render_json(findings), encoding="utf-8")
-    (d / "meta.json").write_text(
-        json.dumps({"release_set": release_set, "generated_at_utc": "2026-08-27T09:00:00+00:00"}),
-        encoding="utf-8",
+    save_report(
+        root / f"report-{release_set.replace('.', '-')}.json",
+        SetReport(release_set, "2026-08-27T09:00:00+00:00", findings),
     )
 
 
@@ -173,7 +173,7 @@ def test_cli_noop_when_webhook_unset(tmp_path: Path, monkeypatch):
     posted: list = []
     monkeypatch.setattr(notify, "post_message", lambda url, text: posted.append((url, text)))
 
-    notify.main([str(tmp_path), "--page-url", PAGE_URL])
+    notify.main([str(tmp_path), "--preview-url", PREVIEW_URL, "--pr-url", PR_URL])
 
     assert posted == []  # nothing sent without a webhook
 
@@ -185,13 +185,13 @@ def test_cli_posts_when_new_tags(tmp_path: Path, monkeypatch):
     posted: list = []
     monkeypatch.setattr(notify, "post_message", lambda url, text: posted.append((url, text)))
 
-    notify.main([str(tmp_path), "--page-url", PAGE_URL])
+    notify.main([str(tmp_path), "--preview-url", PREVIEW_URL, "--pr-url", PR_URL])
 
     assert len(posted) == 1
     url, text = posted[0]
     assert url == "https://mm.example.com/hooks/abc"
     assert "kubernetes/kubernetes" in text
-    assert PAGE_URL in text
+    assert PREVIEW_URL in text and PR_URL in text
 
 
 def test_cli_quiet_run_does_not_post(tmp_path: Path, monkeypatch):
@@ -201,16 +201,9 @@ def test_cli_quiet_run_does_not_post(tmp_path: Path, monkeypatch):
     posted: list = []
     monkeypatch.setattr(notify, "post_message", lambda url, text: posted.append((url, text)))
 
-    notify.main([str(tmp_path), "--page-url", PAGE_URL])
+    notify.main([str(tmp_path), "--preview-url", PREVIEW_URL, "--pr-url", PR_URL])
 
     assert posted == []
-
-
-def test_cli_loads_reports_from_artifacts(tmp_path: Path):
-    # Sanity: the CLI's loader is the site loader (shared contract).
-    _write_set(tmp_path, "1.37", [_high()])
-    reports = load_reports(tmp_path)
-    assert reports[0].release_set == "1.37"
 
 
 class _FakeResponse:

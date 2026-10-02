@@ -21,13 +21,7 @@ from tracker.models import (
     Risk,
     TrialMerge,
 )
-from tracker.versioning import parse_ref
-
-
-def _tag_sort_key(entry: NewTagFinding) -> tuple:
-    parsed = parse_ref(entry.tag)
-    # Unparseable tags sort last but stay deterministic (by raw string).
-    return (parsed is None, parsed.release if parsed else (), entry.tag)
+from tracker.versioning import tag_sort_key
 
 
 def assemble_finding(repo: RepoConfig, new_tags: Iterable[NewTagFinding]) -> Finding:
@@ -37,7 +31,7 @@ def assemble_finding(repo: RepoConfig, new_tags: Iterable[NewTagFinding]) -> Fin
     regardless of the order the sub-graph produced them in.
     """
 
-    ordered = sorted(new_tags, key=_tag_sort_key)
+    ordered = sorted(new_tags, key=lambda entry: tag_sort_key(entry.tag))
     return Finding(repo=repo, new_tags=ordered)
 
 

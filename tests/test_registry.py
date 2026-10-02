@@ -1,9 +1,9 @@
-"""Registry loader + validation tests (Milestone 1).
+"""Registry loader + fork baseline tests.
 
 Covers the seed registry (``registries/upstream-tracker-1-36.yaml`` — parses
-cleanly into all tracked repos, launchpad->github fork conversion held) and the
-loader's failure modes (missing file, bad YAML, wrong shape, missing/extra
-fields).
+cleanly into all tracked repos), the loader's failure modes (missing file, bad
+YAML, wrong shape, missing/extra fields), and baseline resolution from the
+fork's ``canonical/upstream-version``.
 """
 
 from __future__ import annotations
@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from tracker import config
+from tracker import config, registry
 from tracker.models import RepoConfig
-from tracker.registry import RegistryError, load_registry, save_registry
+from tracker.registry import RegistryError, load_registry, resolve_baselines
 
 EXPECTED_REPO_COUNT = 15
 
@@ -25,7 +25,6 @@ def _valid_entry(**overrides) -> dict:
         "upstream": "https://github.com/coredns/coredns",
         "canonical_repo": "https://github.com/canonical/mx-coredns",
         "canonical_branch": "canonical/1.14/stable",
-        "current_upstream_tag": "v1.14.6",
     }
     entry.update(overrides)
     return entry
@@ -62,14 +61,6 @@ def test_valid_registry_roundtrips(tmp_path: Path):
     repos = load_registry(path)
     assert len(repos) == 1
     assert repos[0].name == "coredns/coredns"
-
-
-def test_save_registry_roundtrips(tmp_path: Path):
-    original = load_registry(config.DEFAULT_TRACKER_PATH)
-    out = tmp_path / "out.yaml"
-    save_registry(out, original)
-    reloaded = load_registry(out)
-    assert [r.model_dump() for r in reloaded] == [r.model_dump() for r in original]
 
 
 # --- Failure modes -------------------------------------------------------
@@ -126,3 +117,61 @@ def test_unknown_field_rejected(tmp_path: Path):
     path = _write(tmp_path / "x.yaml", yaml.safe_dump({"repos": [_valid_entry(typo_field="x")]}))
     with pytest.raises(RegistryError, match="coredns/coredns"):
         load_registry(path)
+
+
+def test_registry_baseline_key_rejected(tmp_path: Path):
+    # The baseline moved to the fork branch; a stale key must not be silently used.
+    import yaml
+
+    entry = _valid_entry(current_upstream_tag="v1.14.6")
+    path = _write(tmp_path / "x.yaml", yaml.safe_dump({"repos": [entry]}))
+    with pytest.raises(RegistryError, match="upstream-version"):
+        load_registry(path)
+
+
+# --- Baseline resolution -------------------------------------------------
+
+
+def _stub_fork_file(monkeypatch, files: dict[tuple[str, str], str]) -> None:
+    from tracker.tools import github
+
+    def fake_read(repo: str, path: str, ref: str) -> str:
+        assert path == registry.UPSTREAM_VERSION_PATH
+        try:
+            return files[(repo, ref)]
+        except KeyError:
+            raise FileNotFoundError(f"{repo}@{ref}:{path}") from None
+
+    monkeypatch.setattr(github, "read_repo_file", fake_read)
+
+
+def test_resolve_reads_fork_branch_file(monkeypatch):
+    _stub_fork_file(monkeypatch, {("canonical/mx-coredns", "canonical/1.14/stable"): "v1.14.6\n"})
+    (repo,) = resolve_baselines([RepoConfig(**_valid_entry())])
+    assert repo.current_upstream_tag == "v1.14.6"
+
+
+def test_resolve_accepts_prerelease_on_edge_branch(monkeypatch):
+    entry = _valid_entry(canonical_branch="canonical/1.15/edge")
+    _stub_fork_file(monkeypatch, {("canonical/mx-coredns", "canonical/1.15/edge"): "v1.15.0-rc.1"})
+    (repo,) = resolve_baselines([RepoConfig(**entry)])
+    assert repo.current_upstream_tag == "v1.15.0-rc.1"
+
+
+def test_resolve_missing_file_raises(monkeypatch):
+    _stub_fork_file(monkeypatch, {})
+    with pytest.raises(RegistryError, match="not found"):
+        resolve_baselines([RepoConfig(**_valid_entry())])
+
+
+def test_resolve_tag_off_branch_line_raises(monkeypatch):
+    # canonical/1.14/stable holding a 1.13 tag would watch the wrong line.
+    _stub_fork_file(monkeypatch, {("canonical/mx-coredns", "canonical/1.14/stable"): "v1.13.9"})
+    with pytest.raises(RegistryError, match="major.minor"):
+        resolve_baselines([RepoConfig(**_valid_entry())])
+
+
+def test_resolve_unparseable_tag_raises(monkeypatch):
+    _stub_fork_file(monkeypatch, {("canonical/mx-coredns", "canonical/1.14/stable"): "latest"})
+    with pytest.raises(RegistryError, match="unparseable"):
+        resolve_baselines([RepoConfig(**_valid_entry())])

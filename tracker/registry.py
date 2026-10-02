@@ -1,24 +1,34 @@
-"""Upstream-tracker registry loader + validation (Milestone 1).
+"""Upstream-tracker registry loader + fork baseline resolution.
 
 The registry (one ``registries/upstream-tracker-<set>.yaml`` per K8s release
 set) is the version-controlled input that drives the whole tracker: it lists,
-per repo, the upstream we watch, our Canonical fork, its release branch, and the
-newest upstream tag our fork currently sits on (``current_upstream_tag``). The
-release set is selected by the CLI argument. This module loads that file,
-validates it against :class:`models.RepoConfig`, and fails loudly with
-actionable errors so a malformed registry never silently produces an empty or
-wrong run. It can also write the registry back (finalize step) with the
-``current_upstream_tag`` advanced to the newest reported tag.
+per repo, the upstream we watch, our Canonical fork, and its release branch. The
+release set is selected by the CLI argument.
+
+The baseline — the newest upstream tag the fork branch has incorporated — is
+*not* stored in the registry. Each fork branch records it in
+``canonical/upstream-version``; :func:`resolve_baselines` reads that file at run
+time so the tracker always diffs against what actually shipped, never against a
+hand-maintained copy that drifts while releases are in flight.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
 from pydantic import ValidationError
 
 from tracker.models import RepoConfig
+from tracker.versioning import parse_ref
+
+# File in every fork release branch holding the merged upstream tag.
+UPSTREAM_VERSION_PATH = "canonical/upstream-version"
+
+# canonical/<major>.<minor>/<risk>: the fork branch naming model.
+_BRANCH_RE = re.compile(r"^canonical/(?P<major>\d+)\.(?P<minor>\d+)/[a-z]+$")
+_GITHUB_PREFIX = "https://github.com/"
 
 
 class RegistryError(ValueError):
@@ -28,11 +38,12 @@ class RegistryError(ValueError):
 def load_registry(path: str | Path) -> list[RepoConfig]:
     """Load and validate the tracker registry at ``path``.
 
-    Returns the list of validated :class:`RepoConfig` entries.
+    Returns the list of validated :class:`RepoConfig` entries with an empty
+    ``current_upstream_tag``; :func:`resolve_baselines` fills it in.
 
     Raises :class:`RegistryError` with a clear message when the file is
     missing, is not valid YAML, has the wrong top-level shape, contains no
-    repos, has duplicate repo names, or any entry fails schema validation.
+    repos, or any entry fails schema validation.
     """
 
     path = Path(path)
@@ -64,6 +75,12 @@ def load_registry(path: str | Path) -> list[RepoConfig]:
             raise RegistryError(
                 f"Registry {path}: repos[{index}] must be a mapping, got {type(entry).__name__}."
             )
+        if "current_upstream_tag" in entry:
+            label = entry.get("name", f"index {index}")
+            raise RegistryError(
+                f"Registry {path}: '{label}' sets current_upstream_tag; the baseline now "
+                f"comes from {UPSTREAM_VERSION_PATH} in the fork branch. Remove the key."
+            )
         try:
             repos.append(RepoConfig(**entry))
         except ValidationError as exc:
@@ -73,38 +90,63 @@ def load_registry(path: str | Path) -> list[RepoConfig]:
     return repos
 
 
-# Field order preserved when writing the registry back out.
-_FIELD_ORDER = (
-    "name",
-    "upstream",
-    "canonical_repo",
-    "canonical_branch",
-    "current_upstream_tag",
-)
+def fork_slug(repo: RepoConfig) -> str:
+    """``https://github.com/canonical/mx-coredns`` -> ``canonical/mx-coredns``."""
+
+    url = repo.canonical_repo.rstrip("/").removesuffix(".git")
+    if not url.startswith(_GITHUB_PREFIX):
+        raise RegistryError(f"{repo.name}: canonical_repo {repo.canonical_repo!r} is not GitHub")
+    return url.removeprefix(_GITHUB_PREFIX)
 
 
-def save_registry(path: str | Path, repos: list[RepoConfig]) -> None:
-    """Write ``repos`` back to ``path`` as YAML.
+def check_baseline(repo: RepoConfig, tag: str) -> None:
+    """Fail loudly unless ``tag`` parses and sits on the branch's major.minor.
 
-    Regenerates the file from the validated models (comments are not preserved;
-    the registry is machine-managed once the finalize step starts bumping
-    ``current_upstream_tag``). Fields are emitted in a stable, readable order
-    with a blank line between entries.
+    ``canonical/2.0/stable`` must hold a ``2.0.x`` tag, else the run would watch
+    a different line than the branch it merges into.
     """
 
-    blocks: list[str] = []
-    for repo in repos:
-        data = repo.model_dump()
-        ordered = {k: data[k] for k in _FIELD_ORDER if k in data}
-        # Emit as a single-item list so PyYAML produces the '- key: value' shape.
-        block = yaml.safe_dump(
-            [ordered],
-            sort_keys=False,
-            default_flow_style=False,
-            allow_unicode=True,
+    parsed = parse_ref(tag)
+    if parsed is None:
+        raise RegistryError(
+            f"{repo.name}: {UPSTREAM_VERSION_PATH} on {repo.canonical_branch} holds "
+            f"an unparseable tag {tag!r}."
         )
-        # Indent the block two spaces so it nests under the top-level 'repos:'.
-        blocks.append("\n".join("  " + line if line else line for line in block.splitlines()))
+    branch = _BRANCH_RE.match(repo.canonical_branch)
+    if branch is None:
+        raise RegistryError(
+            f"{repo.name}: branch {repo.canonical_branch!r} is not "
+            "canonical/<major>.<minor>/<risk>."
+        )
+    branch_line = (int(branch["major"]), int(branch["minor"]))
+    if branch_line != parsed.line[1:]:
+        raise RegistryError(
+            f"{repo.name}: {UPSTREAM_VERSION_PATH} on {repo.canonical_branch} holds {tag!r}, "
+            "which is not on the branch's major.minor line."
+        )
 
-    body = "repos:\n" + "\n\n".join(blocks) + "\n"
-    Path(path).write_text(body, encoding="utf-8")
+
+def resolve_baselines(repos: list[RepoConfig]) -> list[RepoConfig]:
+    """Fill each repo's ``current_upstream_tag`` from its fork branch.
+
+    Reads ``canonical/upstream-version`` from ``canonical_branch`` of the fork
+    and validates it with :func:`check_baseline`. A missing or invalid file
+    raises :class:`RegistryError` (the run must not guess a baseline).
+    """
+
+    # Imported here so offline registry loads never pull in the GitHub client.
+    from tracker.tools.github import read_repo_file
+
+    resolved: list[RepoConfig] = []
+    for repo in repos:
+        try:
+            tag = read_repo_file(fork_slug(repo), UPSTREAM_VERSION_PATH, repo.canonical_branch)
+        except FileNotFoundError as exc:
+            raise RegistryError(
+                f"{repo.name}: {UPSTREAM_VERSION_PATH} not found on "
+                f"{repo.canonical_repo}@{repo.canonical_branch}."
+            ) from exc
+        tag = tag.strip()
+        check_baseline(repo, tag)
+        resolved.append(repo.model_copy(update={"current_upstream_tag": tag}))
+    return resolved

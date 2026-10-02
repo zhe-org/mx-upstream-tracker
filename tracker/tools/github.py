@@ -7,7 +7,7 @@ repos are readable unauthenticated, but a token raises the rate limit).
 
 from __future__ import annotations
 
-from github import Auth, Github, GithubException
+from github import Auth, Github, GithubException, UnknownObjectException
 
 from tracker.config import load_settings
 
@@ -33,6 +33,25 @@ def list_tags(repo: str) -> list[str]:
         return [tag.name for tag in repository.get_tags()]
     finally:
         client.close()
+
+
+def read_repo_file(repo: str, path: str, ref: str) -> str:
+    """Return the text of ``path`` at ``ref`` in ``owner/name``.
+
+    Raises ``FileNotFoundError`` when the repo, ref, or file does not exist, so
+    callers can report a missing file without depending on PyGithub types.
+    """
+
+    client = _client()
+    try:
+        content = client.get_repo(repo).get_contents(path, ref=ref)
+    except UnknownObjectException as exc:
+        raise FileNotFoundError(f"{repo}@{ref}:{path}") from exc
+    finally:
+        client.close()
+    if isinstance(content, list):
+        raise FileNotFoundError(f"{repo}@{ref}:{path} is a directory")
+    return content.decoded_content.decode("utf-8")
 
 
 def get_release_notes(repo: str, tag: str) -> str:

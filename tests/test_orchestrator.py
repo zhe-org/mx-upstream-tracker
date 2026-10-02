@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from tracker import config
@@ -11,7 +12,8 @@ from tracker.assembler import clean_tag_finding
 from tracker.finalize import finalize_run
 from tracker.graph import _worker_count, dispatch, run_repo_subgraph
 from tracker.models import EvidenceBundle, Finding, RepoConfig, RepoJob, TrialMerge
-from tracker.registry import load_registry
+from tracker.reports import load_report, stamp
+from tracker.state import load_scanned, save_scanned
 
 
 def _fake_preflight(monkeypatch) -> None:
@@ -43,13 +45,15 @@ def _settings(tmp_path: Path) -> config.Settings:
         config.load_settings(),
         tracker_path=tmp_path / "upstream-tracker.yaml",
         state_path=tmp_path / "processed.json",
+        reports_path=tmp_path / "report.json",
     )
 
 
 # --- discover_releases_node ---------------------------------------------
 
 
-def test_discover_builds_jobs_for_new_tags(monkeypatch):
+def test_discover_builds_jobs_for_new_tags(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("STATE_PATH", str(tmp_path / "processed.json"))
     repos = [_repo("coredns/coredns", "v1.14.6"), _repo("etcd-io/etcd", "v3.6.13")]
     fake_tags = {
         "coredns/coredns": ["v1.14.6", "v1.14.7", "v1.14.8", "v1.15.0"],
@@ -64,11 +68,45 @@ def test_discover_builds_jobs_for_new_tags(monkeypatch):
     assert jobs[0].new_tags == ["v1.14.7", "v1.14.8"]
 
 
-def test_discover_quiet_run(monkeypatch):
+def test_discover_quiet_run(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("STATE_PATH", str(tmp_path / "processed.json"))
     repos = [_repo("coredns/coredns", "v1.14.6")]
     monkeypatch.setattr(orchestrator, "list_tags", lambda repo: ["v1.14.6"])
 
     assert orchestrator.discover_releases_node({"repos": repos})["jobs"] == []
+
+
+def test_discover_skips_tags_already_scanned(monkeypatch, tmp_path: Path):
+    # Fork still on v1.14.6, but v1.14.7 was reported last night: only v1.14.8 is new.
+    state = tmp_path / "processed.json"
+    save_scanned({"coredns/coredns": "v1.14.7"}, state)
+    monkeypatch.setenv("STATE_PATH", str(state))
+    monkeypatch.setattr(orchestrator, "list_tags", lambda repo: ["v1.14.7", "v1.14.8"])
+
+    jobs = orchestrator.discover_releases_node({"repos": [_repo("coredns/coredns", "v1.14.6")]})
+    assert jobs["jobs"][0].new_tags == ["v1.14.8"]
+
+
+def test_discover_baseline_ahead_of_watermark_wins(monkeypatch, tmp_path: Path):
+    # Fork merged v1.14.9 by hand; the older watermark must not resurface v1.14.8/9.
+    state = tmp_path / "processed.json"
+    save_scanned({"coredns/coredns": "v1.14.7"}, state)
+    monkeypatch.setenv("STATE_PATH", str(state))
+    monkeypatch.setattr(orchestrator, "list_tags", lambda repo: ["v1.14.8", "v1.14.9", "v1.14.10"])
+
+    jobs = orchestrator.discover_releases_node({"repos": [_repo("coredns/coredns", "v1.14.9")]})
+    assert jobs["jobs"][0].new_tags == ["v1.14.10"]
+
+
+def test_discover_ignores_watermark_on_other_line(monkeypatch, tmp_path: Path):
+    # A stale watermark from an older fork line must not hide the new line's tags.
+    state = tmp_path / "processed.json"
+    save_scanned({"coredns/coredns": "v1.13.9"}, state)
+    monkeypatch.setenv("STATE_PATH", str(state))
+    monkeypatch.setattr(orchestrator, "list_tags", lambda repo: ["v1.14.7"])
+
+    jobs = orchestrator.discover_releases_node({"repos": [_repo("coredns/coredns", "v1.14.6")]})
+    assert jobs["jobs"][0].new_tags == ["v1.14.7"]
 
 
 # --- dispatch ------------------------------------------------------------
@@ -142,41 +180,68 @@ def test_worker_count_never_below_one():
 # --- finalize_run --------------------------------------------------------
 
 
-def test_finalize_writes_snapshot_and_bumps_registry(tmp_path: Path):
+NOW = datetime(2026, 10, 2, 9, tzinfo=UTC)
+
+
+def test_finalize_advances_watermark_and_keeps_other_repos(tmp_path: Path):
     settings = _settings(tmp_path)
-    repos = [_repo("coredns/coredns", "v1.14.6"), _repo("etcd-io/etcd", "v3.6.13")]
-    # Seed the registry file so finalize can rewrite it.
-    from tracker.registry import save_registry
-
-    save_registry(settings.tracker_path, repos)
-
+    save_scanned({"etcd-io/etcd": "v3.6.13", "coredns/coredns": "v1.14.6"}, settings.state_path)
     findings = [
         Finding(
             repo=_repo("coredns/coredns", "v1.14.6"),
             new_tags=[
+                clean_tag_finding("v1.14.8-rc.0", summary="rc"),
                 clean_tag_finding("v1.14.7", summary="bugfix"),
-                clean_tag_finding("v1.14.8", summary="bugfix"),
             ],
         ),
     ]
 
-    finalize_run(repos, findings, settings)
+    finalize_run(stamp(findings, NOW), settings, "1.36", NOW)
 
-    # processed.json is a snapshot of exactly what was reported.
-    import json
+    # Newest by semver (v1.14.8-rc.0 > v1.14.7); repos without new tags keep their entry.
+    assert load_scanned(settings.state_path) == {
+        "coredns/coredns": "v1.14.8-rc.0",
+        "etcd-io/etcd": "v3.6.13",
+    }
 
-    snapshot = json.loads(settings.state_path.read_text())["processed"]
-    assert snapshot == {"coredns/coredns": ["v1.14.7", "v1.14.8"]}
 
-    # current_upstream_tag advanced to the newest reported tag; others untouched.
-    reloaded = {r.name: r for r in load_registry(settings.tracker_path)}
-    assert reloaded["coredns/coredns"].current_upstream_tag == "v1.14.8"
-    assert reloaded["etcd-io/etcd"].current_upstream_tag == "v3.6.13"
+def test_finalize_accumulates_report_and_expires_old_tags(tmp_path: Path):
+    settings = _settings(tmp_path)
+    earlier = [
+        Finding(
+            repo=_repo("coredns/coredns", "v1.14.6"),
+            new_tags=[clean_tag_finding("v1.14.7", summary="a")],
+        ),
+        Finding(
+            repo=_repo("etcd-io/etcd", "v3.6.12"),
+            new_tags=[clean_tag_finding("v3.6.13", summary="b")],
+        ),
+    ]
+    finalize_run(
+        stamp(earlier[:1], NOW - timedelta(days=3)), settings, "1.36", NOW - timedelta(days=3)
+    )
+    finalize_run(
+        stamp(earlier[1:], NOW - timedelta(days=8)), settings, "1.36", NOW - timedelta(days=8)
+    )
+
+    today = [
+        Finding(
+            repo=_repo("coredns/coredns", "v1.14.6"),
+            new_tags=[clean_tag_finding("v1.14.8", summary="c")],
+        )
+    ]
+    finalize_run(stamp(today, NOW), settings, "1.36", NOW)
+
+    report = load_report(settings.reports_path)
+    assert report is not None and report.release_set == "1.36"
+    # coredns keeps the 3-day-old tag next to today's; etcd's 8-day-old tag expired.
+    assert {f.repo.name: [nt.tag for nt in f.new_tags] for f in report.findings} == {
+        "coredns/coredns": ["v1.14.7", "v1.14.8"],
+    }
 
 
 def test_finalize_quiet_run_is_noop(tmp_path: Path):
     settings = _settings(tmp_path)
-    repos = [_repo("coredns/coredns", "v1.14.6")]
-    finalize_run(repos, [], settings)
+    finalize_run([], settings, "1.36", NOW)
     assert not settings.state_path.exists()
-    assert not settings.tracker_path.exists()
+    assert not settings.reports_path.exists()

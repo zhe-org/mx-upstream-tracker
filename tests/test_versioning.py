@@ -1,4 +1,4 @@
-"""Version parsing + constraint matching tests (Milestone 2)."""
+"""Version parsing + constraint matching tests."""
 
 from __future__ import annotations
 
@@ -13,34 +13,43 @@ def test_parse_plain_v_prefix():
     p = parse_ref("v1.14.6")
     assert p is not None
     assert p.prefix == "v"
-    assert p.release == (1, 14, 6)
-    assert p.prerelease is None
+    assert str(p.version) == "1.14.6"
     assert p.line == ("v", 1, 14)
-
-
-def test_parse_go_prefix():
-    p = parse_ref("go1.26.5")
-    assert p is not None
-    assert p.prefix == "go"
-    assert p.release == (1, 26, 5)
 
 
 def test_parse_multi_dash_prefix():
     p = parse_ref("cluster-autoscaler-1.36.0")
     assert p is not None
     assert p.prefix == "cluster-autoscaler-"
-    assert p.release == (1, 36, 0)
-    assert p.prerelease is None
+    assert p.line == ("cluster-autoscaler-", 1, 36)
 
 
 def test_parse_prerelease():
-    p = parse_ref("v1.4.0-rc.1")
+    p = parse_ref("v1.38.0-alpha.1")
     assert p is not None
-    assert p.release == (1, 4, 0)
-    assert p.prerelease == "rc.1"
+    assert p.version.prerelease == "alpha.1"
+    assert p.line == ("v", 1, 38)
 
 
-@pytest.mark.parametrize("bad", ["latest", "nightly", "release.r60", "", "v1", "vX.Y.Z"])
+@pytest.mark.parametrize(
+    ("tag", "normalized"),
+    [
+        ("go1.26.5", "1.26.5"),
+        ("go1.26", "1.26.0"),  # Go's first release of a line has no .0
+        ("go1.27rc1", "1.27.0-rc.1"),
+        ("go1.27beta2", "1.27.0-beta.2"),
+    ],
+)
+def test_parse_go_spellings(tag, normalized):
+    p = parse_ref(tag)
+    assert p is not None
+    assert p.prefix == "go"
+    assert str(p.version) == normalized
+
+
+@pytest.mark.parametrize(
+    "bad", ["latest", "nightly", "release.r60", "", "v1", "vX.Y.Z", "v1.2.3.4", "v1.2.3-rc.01"]
+)
 def test_parse_unparseable_returns_none(bad):
     assert parse_ref(bad) is None
 
@@ -61,9 +70,33 @@ def test_result_sorted_oldest_to_newest():
     ]
 
 
-def test_skips_prereleases():
-    candidates = ["v1.14.7", "v1.14.8-rc.1", "v1.14.8-beta.0", "v1.14.9-alpha.1"]
-    assert select_new_tags("v1.14.6", candidates) == ["v1.14.7"]
+def test_includes_prereleases_in_semver_order():
+    candidates = ["v1.14.8", "v1.14.8-rc.1", "v1.14.7", "v1.14.8-beta.0", "v1.14.8-alpha.1"]
+    assert select_new_tags("v1.14.6", candidates) == [
+        "v1.14.7",
+        "v1.14.8-alpha.1",
+        "v1.14.8-beta.0",
+        "v1.14.8-rc.1",
+        "v1.14.8",
+    ]
+
+
+def test_prerelease_baseline_tracks_following_prereleases_and_release():
+    # An edge branch sitting on an alpha keeps seeing alphas/betas/rcs and the GA.
+    candidates = ["v1.38.0-alpha.1", "v1.38.0-alpha.2", "v1.38.0-rc.0", "v1.38.0", "v1.37.2"]
+    assert select_new_tags("v1.38.0-alpha.1", candidates) == [
+        "v1.38.0-alpha.2",
+        "v1.38.0-rc.0",
+        "v1.38.0",
+    ]
+
+
+def test_go_rc_ordered_before_go_release():
+    assert select_new_tags("go1.27rc1", ["go1.27rc2", "go1.27", "go1.27.1", "go1.26.9"]) == [
+        "go1.27rc2",
+        "go1.27",
+        "go1.27.1",
+    ]
 
 
 def test_different_prefix_excluded():

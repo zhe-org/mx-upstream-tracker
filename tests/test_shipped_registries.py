@@ -7,9 +7,8 @@ that silently reports nothing). These tests make that a CI failure instead:
 
   - every shipped registry parses and validates,
   - upstream/fork URLs follow the project's naming convention,
-  - ``current_upstream_tag`` is parseable and sits on the track its
-    ``canonical_branch`` names (a mismatch means the run would watch the wrong
-    line or blow up in ``select_new_tags``),
+  - fork branches follow ``canonical/<major>.<minor>/<risk>`` (the baseline
+    read from ``canonical/upstream-version`` is checked against it at run time),
   - no fork branch is tracked by two release sets (a component/branch belongs to
     exactly one set — the newest set that uses it — so shared components are not
     reviewed and bumped twice),
@@ -26,7 +25,6 @@ import yaml
 from tracker import config, main
 from tracker.models import RepoConfig
 from tracker.registry import load_registry
-from tracker.versioning import parse_ref
 
 NIGHTLY_WORKFLOW = config.ROOT_DIR / ".github" / "workflows" / "nightly.yml"
 
@@ -40,13 +38,6 @@ BRANCH_RE = re.compile(r"^canonical/(?P<track>\d+\.\d+)/(?P<risk>edge|beta|candi
 
 def _repos(release_set: str) -> list[RepoConfig]:
     return load_registry(config.registry_path_for(release_set))
-
-
-def _track(tag: str) -> str:
-    """``v1.33.13`` -> ``1.33``; ``cluster-autoscaler-1.33.6`` -> ``1.33``."""
-    parsed = parse_ref(tag)
-    assert parsed is not None, f"unparseable tag: {tag!r}"
-    return f"{parsed.release[0]}.{parsed.release[1]}"
 
 
 # --- The registries exist ------------------------------------------------
@@ -78,35 +69,11 @@ def test_shipped_urls_follow_convention(release_set: str):
 
 
 @pytest.mark.parametrize("release_set", RELEASE_SETS)
-def test_shipped_tags_are_parseable(release_set: str):
-    # select_new_tags() raises on an unparseable current_upstream_tag, which
-    # would fail the whole nightly run for that set.
-    for repo in _repos(release_set):
-        assert parse_ref(repo.current_upstream_tag) is not None, (
-            f"{release_set}/{repo.name}: unparseable current_upstream_tag "
-            f"{repo.current_upstream_tag!r}"
-        )
-
-
-@pytest.mark.parametrize("release_set", RELEASE_SETS)
 def test_shipped_branches_follow_naming_model(release_set: str):
     for repo in _repos(release_set):
         assert BRANCH_RE.match(repo.canonical_branch), (
             f"{release_set}/{repo.name}: branch {repo.canonical_branch!r} is not "
             "canonical/<major>.<minor>/<risk>"
-        )
-
-
-@pytest.mark.parametrize("release_set", RELEASE_SETS)
-def test_branch_track_matches_current_tag(release_set: str):
-    # canonical/2.0/stable must be pinned to a 2.0.x tag, else the run watches a
-    # different line than the branch it would merge into.
-    for repo in _repos(release_set):
-        match = BRANCH_RE.match(repo.canonical_branch)
-        assert match is not None, f"{release_set}/{repo.name}: {repo.canonical_branch!r}"
-        assert match["track"] == _track(repo.current_upstream_tag), (
-            f"{release_set}/{repo.name}: branch {repo.canonical_branch!r} does not "
-            f"match tag {repo.current_upstream_tag!r}"
         )
 
 

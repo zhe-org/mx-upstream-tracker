@@ -3,28 +3,23 @@ repos:
     upstream: https://github.com/containerd/containerd
     canonical_repo: https://github.com/canonical/mx-containerd
     canonical_branch: canonical/2.4/stable
-    current_upstream_tag: v2.4.1
 
   - name: opencontainers/runc
     upstream: https://github.com/opencontainers/runc
     canonical_repo: https://github.com/canonical/mx-opencontainers-runc
     canonical_branch: canonical/1.5/stable
-    current_upstream_tag: v1.5.2
 
   - name: etcd-io/etcd
     upstream: https://github.com/etcd-io/etcd
     canonical_repo: https://github.com/canonical/mx-etcd
     canonical_branch: canonical/3.7/stable
-    current_upstream_tag: v3.7.2
 
   - name: kubernetes/kubernetes
     upstream: https://github.com/kubernetes/kubernetes
     canonical_repo: https://github.com/canonical/mx-kubernetes
     canonical_branch: canonical/1.37/stable
-    current_upstream_tag: v1.37.1
 
   - name: kubernetes-sigs/cri-tools
     upstream: https://github.com/kubernetes-sigs/cri-tools
     canonical_repo: https://github.com/canonical/mx-k8s-sigs-cri-tools
     canonical_branch: canonical/1.37/stable
-    current_upstream_tag: v1.37.0

@@ -4,7 +4,7 @@ on:
   schedule:
     # 09:00 UTC daily (spec: recommended starting point).
     - cron: "0 9 * * *"
-  workflow_dispatch: {}  # allow manual re-trigger
+  workflow_dispatch: {} # allow manual re-trigger
 
 permissions:
   contents: read
@@ -13,28 +13,35 @@ concurrency:
   group: release-tracker
   cancel-in-progress: false
 
+env:
+  # Rolling PR branch: rebuilt from main on every run that finds new tags and
+  # carries the state/ + reports/ updates still waiting to be merged. The
+  # workflow never pushes to main.
+  PR_BRANCH: tracker/nightly
+
 jobs:
   run:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write   # to commit updated registry + state snapshot
     strategy:
       # One job per K8s release set, one registry each
       # (registries/upstream-tracker-<set>.yaml). Keep this list in sync with
       # registries/ — tests/test_shipped_registries.py fails CI if it drifts.
       matrix:
-        release_set: ["1.33", "1.34", "1.35", "1.36", "1.37"]
+        release_set: ["1.33", "1.34", "1.35", "1.36", "1.37", "1.38"]
       # A failing set must not cancel the others.
       fail-fast: false
-      # Serialize so the sets' registry/state commits never race on a
-      # concurrent push (each job checks out after the previous one's push).
-      max-parallel: 1
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       LLM_MODEL: google/gemini-2.5-pro
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      # Start from the watermark/report the open tracker PR already holds, so
+      # tags found on earlier nights are not reported again before it merges.
+      - uses: ./.github/actions/overlay-pending
+        with:
+          branch: ${{ env.PR_BRANCH }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
@@ -48,91 +55,96 @@ jobs:
       - name: Run tracker
         run: uv run python -m tracker.main ${{ matrix.release_set }}
 
-      - name: Upload report artifact
-        # report.md/json/meta.json (always written, even on a quiet run) become
-        # downloadable from the run page and feed the Pages publish job below.
-        if: always()
+      - name: Upload tracker output
+        # Only a run that found new tags writes artifacts/report-<set>.json
+        # (this run's tags, for the notification) and updates state/ +
+        # reports/ (watermark + 7-day report, for the PR).
+        if: hashFiles('artifacts/report-*.json') != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: release-report-${{ matrix.release_set }}-${{ github.run_number }}
-          path: artifacts/
-          if-no-files-found: ignore
-          retention-days: 30
+          name: tracker-${{ matrix.release_set }}
+          path: |
+            artifacts/report-*.json
+            state/
+            reports/
+          retention-days: 7
 
-      - name: Persist registry + processed-tag state
-        run: |
-          if [[ -n "$(git status --porcelain registries/ state/)" ]]; then
-            git config user.name "release-tracker-bot"
-            git config user.email "release-tracker-bot@users.noreply.github.com"
-            git add registries/ state/
-            git commit -m "chore: update tracker registry + processed state (${{ matrix.release_set }}) [skip ci]"
-            # Rebase onto any commit the previous matrix set pushed, then push.
-            git pull --rebase origin "${GITHUB_REF_NAME}"
-            git push
-          fi
-
-  publish:
-    # Aggregate every set's report into one HTML page and deploy it to Pages.
+  pr:
+    # Fold every set's output into the rolling PR. Runs even if one set failed
+    # (fail-fast: false), but not on cancel.
     needs: run
-    # Publish even if one set failed (fail-fast: false), but not on cancel.
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    permissions:
-      pages: write       # deploy the site
-      id-token: write    # OIDC token for the Pages deployment
-      actions: read      # download this run's artifacts
-      contents: read
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    concurrency:
-      group: pages
-      cancel-in-progress: false
+    env:
+      # PAT: pushes and the PR it opens trigger CI and the preview deployment
+      # (events created with the default GITHUB_TOKEN would not).
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      # Pin gh to the repo this workflow runs in: in a fork, gh could
+      # otherwise resolve the parent repo as the PR base.
+      GH_REPO: ${{ github.repository }}
     outputs:
-      # Expose the deployed page URL so the notify job can link to it.
-      page_url: ${{ steps.deploy.outputs.page_url }}
+      found: ${{ steps.changes.outputs.found }}
+      pr_url: ${{ steps.pr.outputs.url }}
+      preview_url: ${{ steps.pr.outputs.preview_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          token: ${{ secrets.GH_TOKEN }}
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+      - uses: ./.github/actions/overlay-pending
+        with:
+          branch: ${{ env.PR_BRANCH }}
 
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install dependencies
-        run: uv sync
-
-      - name: Download all set reports
+      - name: Collect set outputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          pattern: release-report-*-${{ github.run_number }}
-          path: _reports
+          pattern: tracker-*
+          merge-multiple: true
 
-      - name: Build site
-        run: uv run python -m tracker.site _reports site
+      - name: Detect new tags
+        id: changes
+        run: |
+          if compgen -G "artifacts/report-*.json" > /dev/null; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "Quiet run: no new tags on any set; no PR update."
+          fi
 
-      - name: Configure Pages
-        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d
+      - name: Push rolling branch
+        if: steps.changes.outputs.found == 'true'
+        run: |
+          git config user.name "release-tracker-bot"
+          git config user.email "release-tracker-bot@users.noreply.github.com"
+          git switch -C "$PR_BRANCH"
+          git add state/ reports/
+          git commit -m "chore: record upstream tracker results (run ${{ github.run_number }})"
+          git push --force origin "$PR_BRANCH"
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
-        with:
-          path: site
-
-      - name: Deploy to GitHub Pages
-        id: deploy
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346
+      - name: Open or update PR
+        id: pr
+        if: steps.changes.outputs.found == 'true'
+        run: |
+          number=$(gh pr list --head "$PR_BRANCH" --base main --state open --json number --jq '.[0].number')
+          if [ -z "$number" ]; then
+            gh pr create --base main --head "$PR_BRANCH" \
+              --title "chore: upstream tracker results" \
+              --body "New upstream tags found by the nightly tracker. Merging records the last-scanned watermark (state/) and the 7-day report (reports/) on main. This branch is rebuilt from main on every run that finds new tags."
+            number=$(gh pr list --head "$PR_BRANCH" --base main --state open --json number --jq '.[0].number')
+          fi
+          # Internal repos serve Pages from a random host, so ask the API.
+          pages=$(gh api "repos/${GH_REPO}/pages" --jq .html_url)
+          {
+            echo "url=$(gh pr view "$number" --json url --jq .url)"
+            echo "preview_url=${pages%/}/pr-preview/pr-${number}/"
+          } >> "$GITHUB_OUTPUT"
 
   notify:
-    # Post one brief Mattermost message across all sets, after the page is live.
-    needs: [run, publish]
-    # Notify even if one set failed (fail-fast: false), but not on cancel.
-    if: ${{ !cancelled() }}
+    # One brief Mattermost message across all sets, linking the PR preview.
+    # Scheduled runs only: manual (workflow_dispatch) test runs stay silent.
+    needs: pr
+    if: ${{ !cancelled() && github.event_name == 'schedule' && needs.pr.outputs.found == 'true' }}
     runs-on: ubuntu-latest
-    permissions:
-      actions: read      # download this run's artifacts
-      contents: read
     env:
       MATTERMOST_WEBHOOK_URL: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
     steps:
@@ -147,12 +159,16 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Download all set reports
+      - name: Download this run's reports
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          pattern: release-report-*-${{ github.run_number }}
-          path: _reports
+          pattern: tracker-*
+          merge-multiple: true
+          path: _run
 
       - name: Post Mattermost notification
-        # No-ops cleanly if the webhook secret is unset or the run was quiet.
-        run: uv run python -m tracker.notify _reports --page-url "${{ needs.publish.outputs.page_url }}"
+        # No-ops cleanly if the webhook secret is unset.
+        run: >
+          uv run python -m tracker.notify _run/artifacts
+          --preview-url "${{ needs.pr.outputs.preview_url }}"
+          --pr-url "${{ needs.pr.outputs.pr_url }}"

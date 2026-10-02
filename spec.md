@@ -58,10 +58,11 @@ information a human needs to decide and to merge confidently.
 
 A single run targets **one Kubernetes release set** (e.g. `1.36`), not every
 repo at once. Each set is a version-controlled registry
-(`registries/upstream-tracker-<set>.yaml`) plus a processed-tag snapshot
-(`state/processed-<set>.json`). The set is chosen by the CLI argument
+(`registries/upstream-tracker-<set>.yaml`), a last-scanned watermark
+(`state/processed-<set>.json`) and a 7-day report (`reports/report-<set>.json`).
+The set is chosen by the CLI argument
 (`python -m tracker.main 1.36`), and the nightly workflow runs a **matrix** over
-the sets that have a registry (currently `1.33`–`1.37`; adding one is a new
+the sets that have a registry (currently `1.33`–`1.38`; adding one is a new
 registry file plus a matrix entry, kept in sync by
 `tests/test_shipped_registries.py`). This keeps each run focused and lets
 component versions differ per Kubernetes line.
@@ -118,21 +119,22 @@ touch an LLM.
                                      |
                     +----------------v-----------------+
                     |   Reporter (pure, risk-ranked)   |
-                    |   - Markdown / JSON / TL;DR      |
+                    |   - TL;DR (findings -> JSON)     |
                     +----------------+-----------------+
                                      |
                  +-------------------+--------------------+
                  |                                        |
         +--------v---------+                    +---------v----------+
         |  Site generator  |                    |     Finalize       |
-        |  combined HTML   |                    |  advance baseline  |
-        |  page (Pages)    |                    |  + processed snap  |
+        |  combined HTML   |                    |  7-day report +    |
+        |  page (Pages)    |                    |  scan watermark    |
         +--------+---------+                    +--------------------+
                  |
         +--------v-----------------------------+
         |  Delivery                            |
-        |  GitHub Pages site + downloadable    |
-        |  artifact + Mattermost notification  |
+        |  rolling PR + its dashboard preview  |
+        |  + Mattermost notification; main     |
+        |  dashboard on gh-pages after merge   |
         +--------------------------------------+
 ```
 
@@ -142,24 +144,30 @@ Cheap, deterministic bookkeeping and dispatch — no LLM. Responsibilities:
 
 - Owns the **repo registry** for the selected release set: a strict,
   schema-validated config listing, for each tracked repo, the upstream source,
-  our Canonical fork, the fork's release branch, and the newest upstream tag our
-  fork currently sits on (`current_upstream_tag`).
+  our Canonical fork, and the fork's release branch.
+- Resolves each repo's **baseline** (`current_upstream_tag`, the newest upstream
+  tag the fork has incorporated) from `canonical/upstream-version` in the fork's
+  release branch — the fork is the source of truth, so the baseline never drifts
+  from what actually shipped. A missing file, an unparseable tag, or a tag off
+  the branch's `<major>.<minor>` fails the run loudly.
 - On each run, queries **upstream GitHub tags** per repo and keeps only tags on
-  the tracked line implied by `current_upstream_tag` (same prefix +
-  major.minor) that are strictly newer and stable (pre-releases skipped).
-  (Releases/RSS feeds were considered but tags cover every tracked repo.)
+  the tracked line implied by the baseline (same prefix + major.minor) that are
+  strictly newer by **semver** precedence. Pre-releases are included and ordered
+  `alpha < beta < rc < release`; Go's `go1.27rc1` / `go1.26` spellings are
+  normalized first. (Releases/RSS feeds were considered but tags cover every
+  tracked repo.)
 - For every repo that has at least one new qualifying tag, dispatches a fresh
   repo sub-graph. Repos are processed **in parallel** (thread pool — the work is
   I/O-bound on GitHub / git / the LLM).
 - Collects one assembled finding per sub-graph and hands them to the reporter.
-- **Dedup is baseline-driven, not a processed store.** The finalize step
-  advances `current_upstream_tag` to the newest reported tag, so the next run's
-  discovery never re-surfaces an already-reported tag. `processed-<set>.json` is
-  a human-readable record of the last run, not a dedup ledger.
+- **Dedup is watermark-driven.** `state/processed-<set>.json` records, per repo,
+  the newest tag already reported. Discovery only surfaces tags newer than both
+  the baseline and this watermark (a watermark on another line is ignored), so a
+  tag is reported once even while the fork has not merged it yet.
 
-> Finalize runs after the report is produced (outside the graph), so it can be
-> gated on successful delivery: we never advance the baseline for a report that
-> failed to go out.
+> Finalize runs after the run succeeds (outside the graph): it merges the new
+> findings into the 7-day report and advances the watermark. A run that failed
+> part-way persists nothing.
 
 ### Per-repo sub-graph
 
@@ -259,7 +267,8 @@ using the same schema the reporter consumes, enriched with `preflight` and
 
 Everything except `repo` lives **per tag**: one repo can jump several tags, and
 each is judged on its own. `tracked_version` and `last_merged_tag` are derived
-from `repo` (the fork's `current_upstream_tag`), not stored twice. The overall
+from `repo` (the fork's `current_upstream_tag`, resolved from
+`canonical/upstream-version` at run time), not stored twice. The overall
 shape:
 
 ```
@@ -282,7 +291,9 @@ Finding (one per repo)
    ├─ analysis         (present only when preflight flagged)
    │  ├─ cves[]               {cve, severity, affects, detail}
    │  └─ conflicts[]          {path, cause, resolution_hint}
-   └─ notes_for_reviewer
+   ├─ notes_for_reviewer
+   ├─ detected_at      UTC timestamp, stamped when the run records the tag
+   └─ baseline         fork baseline the tag was compared against (diff "From")
 ```
 
 `cve` fields hold whatever advisory scheme was detected (CVE / GHSA / GO / USN);
@@ -355,20 +366,24 @@ the latter.
 ### Reporter agent
 
 Pure and deterministic (no I/O, no wall-clock) — it consumes only structured
-findings, never raw diffs. It produces:
+findings, never raw diffs. It produces a short **TL;DR** for the run log and owns
+the link helpers (upstream release notes, the tag-to-tag diff, and advisory
+entries: NVD / GitHub Advisories / Go vuln DB / Ubuntu USN).
 
-- A risk-ranked **Markdown** report: high-risk merges first, then a per-repo
-  section with summary, highlights, dependency notes, CVEs, and conflicts, with
-  direct links to upstream release notes, the tag-to-tag diff, and advisory
-  entries (NVD / GitHub Advisories / Go vuln DB / Ubuntu USN).
-- A machine-readable **JSON** summary (risk counts + full findings dump) for
-  downstream automation.
-- A short **TL;DR** suitable for posting into a chat channel.
+Findings are persisted as JSON (`tracker/reports.py`):
 
-The **site generator** then aggregates every release set's JSON into a single,
+- `reports/report-<set>.json` — every tag reported in the **last 7 days**, each
+  stamped with `detected_at` and the `baseline` it was compared against. A run
+  merges its new tags in and drops tags older than the window, so a tag found on
+  day 1 stays visible while the team works on it.
+- `artifacts/report-<set>.json` — this run's new tags only; feeds the
+  Mattermost notification.
+
+The **site generator** renders every release set's report into a single,
 self-contained **HTML page** (overview totals, a risk-ranked *version-bump* table
-of From → To per component, collapsible per-component deep-dive cards, and a risk
-filter) for publishing to GitHub Pages.
+of From → To per component with the detection date, collapsible per-component
+deep-dive cards, and a risk filter). It drops tags past the 7-day window at build
+time, so the page stays current even when a set has not run since.
 
 ### Why this split
 
@@ -398,22 +413,27 @@ A few options, not mutually exclusive. v1 ships Option A.
 ### Option A: scheduled GitHub Actions (implemented)
 
 - A workflow runs on a cron (daily at 09:00 UTC) plus `workflow_dispatch`, as a
-  **matrix over release sets**. Each set's job checks out the registry, runs the
-  orchestrator, and produces the report.
-- Delivery in v1:
-  - **GitHub Pages web report** — a `publish` job aggregates every set's report
-    into one HTML page and deploys it via `actions/deploy-pages` (access-controlled
-    when hosted under the Canonical org).
-  - **Downloadable artifact** — `report.md` / `report.json` uploaded per set.
-  - **Mattermost notification** — a `notify` job (after `publish`) aggregates
-    every set's report into one brief message — the components with new tags
-    grouped by set (From → To), a risk tally, and a link to the deployed Pages
-    report — and posts it to a channel via an **incoming webhook**
-    (`MATTERMOST_WEBHOOK_URL`). It stays silent on a quiet run (no new tags) and
-    no-ops cleanly when the webhook is unset, so it never fails the workflow.
-  - The updated registry (`current_upstream_tag` advanced) and processed-tag
-    snapshot are committed back to the repo.
-- Deferred: posting the report as an issue / PR comment.
+  **matrix over release sets**. Each set's job checks out `main`, overlays the
+  `state/` + `reports/` held by the open tracker PR (so earlier nights' tags
+  are not reported again before it merges), and runs the tracker.
+- The workflow **never pushes to `main`**. When any set found new tags, a `pr`
+  job rebuilds the rolling branch `tracker/nightly` from `main` plus every set's
+  `state/` + `reports/`, force-pushes it, and opens (or reuses) one PR. Pushes
+  and the PR use the `GH_TOKEN` PAT so CI and the preview workflow run on it.
+- Delivery:
+  - **GitHub Pages, deployed from the `gh-pages` branch.** `pr-preview.yml`
+    deploys each PR's dashboard to `pr-preview/pr-<N>/` with
+    `rossjrw/pr-preview-action` and removes it when the PR closes.
+    `pages.yml` deploys `main`'s dashboard to the branch root on push to `main`
+    and daily (so tags age out), keeping `pr-preview/` intact. Internal repos
+    serve Pages from a random host, so workflows read the base URL from the
+    Pages API instead of assuming `<org>.github.io/<repo>`.
+  - **Mattermost notification** — a `notify` job (after `pr`) posts one brief
+    message — the components with new tags grouped by set (From → To), a risk
+    tally, and links to the PR's dashboard preview and the PR — via an
+    **incoming webhook** (`MATTERMOST_WEBHOOK_URL`). It runs only on scheduled
+    runs that found new tags (manual `workflow_dispatch` test runs stay silent)
+    and no-ops cleanly when the webhook is unset.
 
 Pros: zero new infra, easy to audit (every run is a workflow run with logs),
 easy to re-trigger manually.
@@ -448,14 +468,16 @@ Cons: noisier; more moving parts.
 
 - A **release-set registry** file (version-controlled), listing for each repo a
   strict, schema-validated set of fields: `name` (upstream `owner/repo`),
-  `upstream` URL, `canonical_repo` (our fork), `canonical_branch` (the fork's
-  release branch), and `current_upstream_tag` (the newest upstream tag our fork
-  sits on — the baseline; the tracked line is implied by it). The finalize step
-  rewrites this file to advance `current_upstream_tag`.
-- **Credentials.** `GH_TOKEN` with read access to upstream repos (public is
-  usually enough) and read access to our forks (needed for the trial-merge
-  clone), and `OPENROUTER_API_KEY` for the analyzer's LLM
-  (OpenRouter, `google/gemini-2.5-pro`).
+  `upstream` URL, `canonical_repo` (our fork), and `canonical_branch` (the fork's
+  release branch, `canonical/<major>.<minor>/<risk>`).
+- In every tracked fork branch, a `canonical/upstream-version` file holding the
+  upstream tag the branch has incorporated (e.g. `v2.4.1`) — the baseline.
+- **Credentials.** `GH_TOKEN` (a PAT) with read access to upstream repos and our
+  forks (baseline file + trial-merge clone) and write access to this repo (push
+  the rolling branch, open the PR), and `OPENROUTER_API_KEY` for the analyzer's
+  LLM (OpenRouter, `google/gemini-2.5-pro`).
+- Repo settings: Pages source **Deploy from a branch** (`gh-pages`, root), and
+  Actions workflow permissions **Read and write** (preview + dashboard pushes).
 - Optional: `MATTERMOST_WEBHOOK_URL` (incoming-webhook URL) for the nightly
   Mattermost notification; unset disables the push (the `notify` job no-ops).
 - `git` available on the runner to perform trial merges in a temporary
