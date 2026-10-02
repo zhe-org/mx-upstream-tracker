@@ -7,8 +7,8 @@ registry ``registries/upstream-tracker-1-36.yaml`` and the snapshot
 every downstream ``load_settings()`` call resolves the same paths.
 
 The run discovers new tags, runs the per-repo sub-graph (preflight gate +
-analyzer deep-dive), renders the report (markdown + JSON + TL;DR), and writes
-``report.md`` / ``report.json`` / ``meta.json`` to the artifact dir for the
+analyzer deep-dive), renders the report (JSON + TL;DR), and writes
+``report.json`` / ``meta.json`` to the artifact dir for the
 Pages site to publish. Finalize then records the reported tags.
 """
 
@@ -93,7 +93,6 @@ def main(argv: list[str] | None = None) -> None:
     # was last updated.
     report = reporter_node(state)
     settings.artifact_dir.mkdir(parents=True, exist_ok=True)
-    (settings.artifact_dir / "report.md").write_text(report["report_markdown"], encoding="utf-8")
     (settings.artifact_dir / "report.json").write_text(report["report_json"], encoding="utf-8")
     meta = {
         "release_set": release_set,
@@ -103,7 +102,7 @@ def main(argv: list[str] | None = None) -> None:
         json.dumps(meta, indent=2) + "\n", encoding="utf-8"
     )
     print(report["tldr"])
-    print(f"Wrote report.md, report.json, meta.json to {settings.artifact_dir}.")
+    print(f"Wrote report.json, meta.json to {settings.artifact_dir}.")
 
     finalize_run(findings, settings)
     if findings:

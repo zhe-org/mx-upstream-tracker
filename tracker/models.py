@@ -222,7 +222,6 @@ class GraphState(TypedDict, total=False):
     repos: list[RepoConfig]
     jobs: list[RepoJob]
     findings: list[Finding]
-    report_markdown: str
     report_json: str
     tldr: str
 

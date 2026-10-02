@@ -1,10 +1,9 @@
 """Reporter agent tests (Milestone 6).
 
-The reporter consumes only structured findings and renders a risk-ranked
-Markdown report, a machine-readable JSON summary, and a short TL;DR. Tests build
-findings directly (no graph) and pin: risk ranking (high first), presence of
-release-notes / diff / CVE links, the clean-only "nothing risky" report, JSON
-validity + computed fields, the TL;DR, and the empty (quiet) run.
+The reporter consumes only structured findings and renders a machine-readable
+JSON summary and a short TL;DR. Tests build findings directly (no graph) and
+pin: release-notes / diff / CVE links, JSON validity + computed fields, the
+TL;DR, and the empty (quiet) run.
 """
 
 from __future__ import annotations
@@ -102,40 +101,6 @@ def test_cve_url_is_scheme_aware():
     assert reporter.cve_url("USN-1234-1") == "https://ubuntu.com/security/notices/USN-1234-1"
 
 
-# --- markdown ------------------------------------------------------------
-
-
-def test_markdown_ranks_high_before_medium_before_low():
-    md = reporter.render_markdown([_clean_finding(), _medium_finding(), _high_finding()])
-    i_high = md.index("kubernetes/kubernetes")
-    i_medium = md.index("etcd-io/etcd")
-    i_low = md.index("coredns/coredns")
-    assert i_high < i_medium < i_low
-
-
-def test_markdown_includes_links_and_analysis():
-    md = reporter.render_markdown([_high_finding()])
-    assert "https://github.com/kubernetes/kubernetes/releases/tag/v1.36.6" in md
-    assert "https://github.com/kubernetes/kubernetes/compare/v1.36.5...v1.36.6" in md
-    assert "https://nvd.nist.gov/vuln/detail/CVE-2026-1111" in md
-    assert "kubelet" in md  # highlight surfaced
-    assert "golang.org/x/net" in md  # dependency surfaced
-    assert "Confirm our eviction patch" in md  # reviewer note
-
-
-def test_clean_only_report_says_nothing_risky():
-    md = reporter.render_markdown([_clean_finding()])
-    assert "nothing risky" in md.lower() or "all clear" in md.lower()
-    # No deep-dive headers on a clean report.
-    assert "Conflicts" not in md
-    assert "CVEs" not in md
-
-
-def test_empty_run_report():
-    md = reporter.render_markdown([])
-    assert "no new upstream" in md.lower()
-
-
 # --- json ----------------------------------------------------------------
 
 
@@ -176,8 +141,7 @@ def test_tldr_empty_run():
 # --- node ----------------------------------------------------------------
 
 
-def test_reporter_node_emits_all_three():
+def test_reporter_node_emits_json_and_tldr():
     out = reporter.reporter_node({"findings": [_high_finding()]})
-    assert out["report_markdown"].startswith("#")
     assert json.loads(out["report_json"])["summary"]["repos"] == 1
     assert out["tldr"]
