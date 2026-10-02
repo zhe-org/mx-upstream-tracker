@@ -138,8 +138,9 @@ jobs:
 
   notify:
     # One brief Mattermost message across all sets, linking the PR preview.
+    # Scheduled runs only: manual (workflow_dispatch) test runs stay silent.
     needs: pr
-    if: ${{ !cancelled() && needs.pr.outputs.found == 'true' }}
+    if: ${{ !cancelled() && github.event_name == 'schedule' && needs.pr.outputs.found == 'true' }}
     runs-on: ubuntu-latest
     env:
       MATTERMOST_WEBHOOK_URL: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
