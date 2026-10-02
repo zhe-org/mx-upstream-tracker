@@ -1,0 +1,35 @@
+name: Overlay pending tracker data
+description: >
+  Copy state/ and reports/ from the rolling tracker PR branch onto the current
+  checkout, so a run starts from what earlier nights recorded even while that
+  PR is still unmerged. No-op when the branch does not exist.
+
+inputs:
+  branch:
+    description: Rolling tracker PR branch.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        BRANCH: ${{ inputs.branch }}
+      run: |
+        set +e
+        git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null
+        rc=$?
+        set -e
+        if [ "$rc" -eq 2 ]; then
+          echo "No pending branch $BRANCH; starting from the checked-out data."
+          exit 0
+        elif [ "$rc" -ne 0 ]; then
+          exit "$rc"
+        fi
+        git fetch --depth=1 origin "$BRANCH"
+        for dir in state reports; do
+          if git cat-file -e "FETCH_HEAD:$dir" 2> /dev/null; then
+            git checkout FETCH_HEAD -- "$dir"
+          fi
+        done
+        echo "Overlaid state/ and reports/ from $BRANCH."

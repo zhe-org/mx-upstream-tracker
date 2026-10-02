@@ -1,0 +1,50 @@
+name: PR dashboard preview
+
+# Deploys each PR's dashboard (built from the PR's own reports/) to
+# gh-pages under pr-preview/pr-<N>/ and removes it when the PR closes. Pages
+# must be set to "Deploy from a branch" (gh-pages, root).
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+concurrency: preview-${{ github.ref }}
+
+permissions:
+  contents: write # push the preview to gh-pages
+  pull-requests: write # sticky preview comment
+  pages: read # look up the Pages URL
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Install uv
+        if: github.event.action != 'closed'
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+
+      - name: Build site
+        if: github.event.action != 'closed'
+        run: |
+          uv python install 3.12
+          uv sync
+          uv run python -m tracker.site reports site
+
+      - name: Resolve Pages URL
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Internal repos serve Pages from a random host, not <org>.github.io/<repo>.
+        run: |
+          url=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .html_url)
+          url=${url#https://}
+          echo "base_url=${url%/}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy preview
+        uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1.8.1
+        with:
+          source-dir: site
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
+          pages-base-url: ${{ steps.pages.outputs.base_url }}

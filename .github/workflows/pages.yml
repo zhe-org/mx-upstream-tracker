@@ -1,0 +1,44 @@
+name: Publish dashboard
+
+# Builds the dashboard from main's reports/ and pushes it to the root of
+# gh-pages (Pages: "Deploy from a branch", gh-pages, root). PR previews live
+# under pr-preview/ on the same branch and are left untouched.
+on:
+  push:
+    branches: [main]
+    paths: ["reports/**", "tracker/**"]
+  schedule:
+    # Daily rebuild so tags age out of the 7-day window even without a merge.
+    - cron: "0 10 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # push to gh-pages
+
+concurrency:
+  group: pages-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+
+      - name: Build site
+        run: |
+          uv python install 3.12
+          uv sync
+          uv run python -m tracker.site reports site
+
+      - name: Deploy to gh-pages
+        uses: JamesIves/github-pages-deploy-action@fa24774553152dd7873cd16ebd8d959b010c5445 # v4.9.0
+        with:
+          folder: site
+          branch: gh-pages
+          # Keep PR previews; rebase instead of force-pushing over them.
+          clean-exclude: pr-preview/
+          force: false
