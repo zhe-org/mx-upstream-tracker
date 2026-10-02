@@ -13,6 +13,7 @@ dependencies = [
     "httpx>=0.27",
     "python-dotenv>=1.0",
     "pygithub>=2.3",
+    "semver>=3",
 ]
 
 [project.scripts]
