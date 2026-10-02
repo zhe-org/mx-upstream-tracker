@@ -1,18 +1,18 @@
 """Static site generator tests.
 
-The site generator aggregates per-release-set reports (``report.json`` +
-``meta.json``) into one combined HTML page. Tests build findings directly and
-pin: report loading + set ordering, the From/To version-bump table, risk
-badges/links, HTML-escaping of dynamic text, and the quiet/empty renderings.
+The site generator renders the per-release-set report store
+(``reports/report-<set>.json``) into one combined HTML page. Tests build
+findings directly and pin: the From/To version-bump table (From = baseline at
+detection), the detected date, risk badges/links, HTML-escaping of dynamic
+text, the quiet/empty renderings, and that the CLI drops tags older than 7 days.
 """
 
 from __future__ import annotations
 
-import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from tracker import site
-from tracker.agents.reporter import render_json
 from tracker.assembler import clean_tag_finding, flagged_preflight_finding
 from tracker.models import (
     Analysis,
@@ -24,6 +24,7 @@ from tracker.models import (
     RepoConfig,
     TrialMerge,
 )
+from tracker.reports import SetReport, save_report, stamp
 
 
 def _repo(name: str, tag: str) -> RepoConfig:
@@ -70,46 +71,18 @@ def _clean() -> Finding:
     )
 
 
-def _write_set(root: Path, release_set: str, findings: list[Finding], *, meta: bool = True) -> None:
-    d = root / f"release-report-{release_set}-7"
-    d.mkdir(parents=True)
-    (d / "report.json").write_text(render_json(findings), encoding="utf-8")
-    if meta:
-        (d / "meta.json").write_text(
-            json.dumps(
-                {"release_set": release_set, "generated_at_utc": "2026-08-27T09:00:00+00:00"}
-            ),
-            encoding="utf-8",
-        )
-
-
-# --- loading -------------------------------------------------------------
-
-
-def test_load_reports_reconstructs_and_sorts(tmp_path: Path):
-    _write_set(tmp_path, "1.37", [_high()])
-    _write_set(tmp_path, "1.36", [_clean()])
-
-    reports = site.load_reports(tmp_path)
-    assert [r.release_set for r in reports] == ["1.36", "1.37"]  # numeric sort
-    high = next(r for r in reports if r.release_set == "1.37")
-    assert high.findings[0].repo.name == "kubernetes/kubernetes"
-    assert high.findings[0].new_tags[0].analysis.cves[0].cve == "CVE-2026-1111"
-    assert high.generated_at == "2026-08-27T09:00:00+00:00"
-
-
-def test_load_reports_falls_back_to_dirname(tmp_path: Path):
-    _write_set(tmp_path, "1.40", [_clean()], meta=False)
-    reports = site.load_reports(tmp_path)
-    assert reports[0].release_set == "1.40"  # parsed from folder name
-    assert reports[0].generated_at is None
+def _write_set(root: Path, release_set: str, findings: list[Finding]) -> None:
+    save_report(
+        root / f"report-{release_set.replace('.', '-')}.json",
+        SetReport(release_set, "2026-08-27T09:00:00+00:00", findings),
+    )
 
 
 # --- version-bump table (From / To) --------------------------------------
 
 
 def test_summary_table_shows_from_and_to_bump():
-    html = site.render_page([site.SetReport("1.37", None, [_high()])])
+    html = site.render_page([SetReport("1.37", None, [_high()])])
     assert "<th>From</th>" in html and "<th>To</th>" in html
     # From = baseline (current_upstream_tag), To = new tag.
     assert '<td class="ver from">v1.37.0</td>' in html
@@ -117,8 +90,19 @@ def test_summary_table_shows_from_and_to_bump():
     assert "/compare/v1.37.0...v1.37.1" in html  # diff link uses From...To
 
 
+def test_from_uses_baseline_recorded_at_detection():
+    # The fork has since moved to v1.37.1; the row still diffs from what the
+    # tag was compared against when it was found.
+    finding = stamp([_high()], datetime(2026, 9, 30, tzinfo=UTC))[0]
+    moved = finding.model_copy(update={"repo": _repo("kubernetes/kubernetes", "v1.37.1")})
+    html = site.render_page([SetReport("1.37", None, [moved])])
+    assert '<td class="ver from">v1.37.0</td>' in html
+    assert "/compare/v1.37.0...v1.37.1" in html
+    assert '<td class="detected">2026-09-30</td>' in html
+
+
 def test_links_and_badges_present():
-    html = site.render_page([site.SetReport("1.37", None, [_high()])])
+    html = site.render_page([SetReport("1.37", None, [_high()])])
     assert "https://nvd.nist.gov/vuln/detail/CVE-2026-1111" in html
     assert 'class="badge risk-high"' in html
     assert 'class="badge merge-conflict"' in html
@@ -138,7 +122,7 @@ def test_dynamic_text_is_html_escaped():
         notes_for_reviewer="<img src=x onerror=alert(1)>",
     )
     finding = Finding(repo=_repo("a/b", "v1.2.2"), new_tags=[tag])
-    html = site.render_page([site.SetReport("9.9", None, [finding])])
+    html = site.render_page([SetReport("9.9", None, [finding])])
     assert "<script>alert" not in html
     assert "&lt;script&gt;alert" in html
     assert "onerror=alert(1)>" not in html
@@ -148,24 +132,27 @@ def test_dynamic_text_is_html_escaped():
 
 
 def test_quiet_set_renders_up_to_date():
-    html = site.render_page([site.SetReport("1.36", None, [])])
+    html = site.render_page([SetReport("1.36", None, [])])
     assert "up to date" in html
     assert "Kubernetes 1.36" in html
 
 
 def test_no_reports_renders_placeholder():
     html = site.render_page([])
-    assert "No reports were produced" in html
+    assert "No reports yet" in html
 
 
 # --- full CLI ------------------------------------------------------------
 
 
-def test_cli_writes_index_and_nojekyll(tmp_path: Path):
-    _write_set(tmp_path, "1.37", [_high()])
+def test_cli_writes_index_and_drops_expired_tags(tmp_path: Path):
+    now = datetime.now(UTC)
+    fresh = stamp([_high()], now - timedelta(days=1))
+    expired = stamp([_clean()], now - timedelta(days=8))
+    _write_set(tmp_path, "1.37", fresh + expired)
     out = tmp_path / "site"
     site.main([str(tmp_path), str(out)])
-    assert (out / "index.html").exists()
     assert (out / ".nojekyll").exists()
     html = (out / "index.html").read_text(encoding="utf-8")
-    assert "Upstream Release Review" in html
+    assert "kubernetes/kubernetes" in html
+    assert "coredns/coredns" not in html  # detected 8 days ago: past the window

@@ -9,6 +9,7 @@ raw diffs or merge logs.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
@@ -167,6 +168,9 @@ class NewTagFinding(BaseModel):
     Clean releases are short: ``preflight.decision == "clean"``,
     ``trial_merge.result == "clean"``, no ``analysis`` block, one-line summary.
     Flagged releases add ``highlights`` / ``dependencies`` / ``analysis``.
+    ``detected_at`` / ``baseline`` are stamped when the run records the tag
+    (:func:`tracker.reports.stamp`): they drive the 7-day retention window and
+    the dashboard's From -> To diff.
     """
 
     tag: str
@@ -177,6 +181,8 @@ class NewTagFinding(BaseModel):
     dependencies: list[Dependency] = Field(default_factory=list)
     analysis: Analysis | None = None
     notes_for_reviewer: str | None = None
+    detected_at: datetime | None = None
+    baseline: str | None = None
 
 
 class Finding(BaseModel):
@@ -222,7 +228,6 @@ class GraphState(TypedDict, total=False):
     repos: list[RepoConfig]
     jobs: list[RepoJob]
     findings: list[Finding]
-    report_json: str
     tldr: str
 
 

@@ -31,7 +31,8 @@ import httpx
 
 from tracker.agents.reporter import _RISK_ORDER, _risk_counts
 from tracker.models import Finding
-from tracker.site import SetReport, _newest_tag, load_reports
+from tracker.reports import SetReport, load_reports
+from tracker.site import _newest_tag
 
 WEBHOOK_ENV = "MATTERMOST_WEBHOOK_URL"
 _POST_TIMEOUT = 30.0

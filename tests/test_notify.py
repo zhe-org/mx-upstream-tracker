@@ -1,8 +1,9 @@
 """Mattermost notification tests (Milestone 7 delivery).
 
-The notifier aggregates the per-release-set reports (the same ``report.json`` +
-``meta.json`` artifacts the site generator consumes), builds one brief markdown
-message listing the components with new tags, and POSTs it to a Mattermost
+The notifier aggregates this run's per-release-set reports (the
+``report-<set>.json`` artifacts written by ``tracker.main``), builds one brief
+markdown message listing the components with new tags, and POSTs it to a
+Mattermost
 incoming webhook. Tests are fully offline: message building is pure, and the
 HTTP POST is monkeypatched. They pin: the component list (From -> To per
 component grouped by set), the risk tally, the report link, the quiet-run
@@ -11,14 +12,12 @@ component grouped by set), the risk tally, the report link, the quiet-run
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from tracker import notify
-from tracker.agents.reporter import render_json
 from tracker.assembler import clean_tag_finding, flagged_preflight_finding
 from tracker.models import Finding, RepoConfig, TrialMerge
-from tracker.site import SetReport, load_reports
+from tracker.reports import SetReport, save_report
 
 PAGE_URL = "https://canonical.github.io/k8s-upstream-tracker/"
 
@@ -157,12 +156,9 @@ def test_post_message_raises_on_http_error(monkeypatch):
 
 
 def _write_set(root: Path, release_set: str, findings: list[Finding]) -> None:
-    d = root / f"release-report-{release_set}-7"
-    d.mkdir(parents=True)
-    (d / "report.json").write_text(render_json(findings), encoding="utf-8")
-    (d / "meta.json").write_text(
-        json.dumps({"release_set": release_set, "generated_at_utc": "2026-08-27T09:00:00+00:00"}),
-        encoding="utf-8",
+    save_report(
+        root / f"report-{release_set.replace('.', '-')}.json",
+        SetReport(release_set, "2026-08-27T09:00:00+00:00", findings),
     )
 
 
@@ -204,13 +200,6 @@ def test_cli_quiet_run_does_not_post(tmp_path: Path, monkeypatch):
     notify.main([str(tmp_path), "--page-url", PAGE_URL])
 
     assert posted == []
-
-
-def test_cli_loads_reports_from_artifacts(tmp_path: Path):
-    # Sanity: the CLI's loader is the site loader (shared contract).
-    _write_set(tmp_path, "1.37", [_high()])
-    reports = load_reports(tmp_path)
-    assert reports[0].release_set == "1.37"
 
 
 class _FakeResponse:

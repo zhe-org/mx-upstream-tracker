@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from tracker import config
@@ -11,6 +12,7 @@ from tracker.assembler import clean_tag_finding
 from tracker.finalize import finalize_run
 from tracker.graph import _worker_count, dispatch, run_repo_subgraph
 from tracker.models import EvidenceBundle, Finding, RepoConfig, RepoJob, TrialMerge
+from tracker.reports import load_report, stamp
 from tracker.state import load_scanned, save_scanned
 
 
@@ -43,6 +45,7 @@ def _settings(tmp_path: Path) -> config.Settings:
         config.load_settings(),
         tracker_path=tmp_path / "upstream-tracker.yaml",
         state_path=tmp_path / "processed.json",
+        reports_path=tmp_path / "report.json",
     )
 
 
@@ -177,6 +180,9 @@ def test_worker_count_never_below_one():
 # --- finalize_run --------------------------------------------------------
 
 
+NOW = datetime(2026, 10, 2, 9, tzinfo=UTC)
+
+
 def test_finalize_advances_watermark_and_keeps_other_repos(tmp_path: Path):
     settings = _settings(tmp_path)
     save_scanned({"etcd-io/etcd": "v3.6.13", "coredns/coredns": "v1.14.6"}, settings.state_path)
@@ -190,7 +196,7 @@ def test_finalize_advances_watermark_and_keeps_other_repos(tmp_path: Path):
         ),
     ]
 
-    finalize_run(findings, settings)
+    finalize_run(stamp(findings, NOW), settings, "1.36", NOW)
 
     # Newest by semver (v1.14.8-rc.0 > v1.14.7); repos without new tags keep their entry.
     assert load_scanned(settings.state_path) == {
@@ -199,7 +205,43 @@ def test_finalize_advances_watermark_and_keeps_other_repos(tmp_path: Path):
     }
 
 
+def test_finalize_accumulates_report_and_expires_old_tags(tmp_path: Path):
+    settings = _settings(tmp_path)
+    earlier = [
+        Finding(
+            repo=_repo("coredns/coredns", "v1.14.6"),
+            new_tags=[clean_tag_finding("v1.14.7", summary="a")],
+        ),
+        Finding(
+            repo=_repo("etcd-io/etcd", "v3.6.12"),
+            new_tags=[clean_tag_finding("v3.6.13", summary="b")],
+        ),
+    ]
+    finalize_run(
+        stamp(earlier[:1], NOW - timedelta(days=3)), settings, "1.36", NOW - timedelta(days=3)
+    )
+    finalize_run(
+        stamp(earlier[1:], NOW - timedelta(days=8)), settings, "1.36", NOW - timedelta(days=8)
+    )
+
+    today = [
+        Finding(
+            repo=_repo("coredns/coredns", "v1.14.6"),
+            new_tags=[clean_tag_finding("v1.14.8", summary="c")],
+        )
+    ]
+    finalize_run(stamp(today, NOW), settings, "1.36", NOW)
+
+    report = load_report(settings.reports_path)
+    assert report is not None and report.release_set == "1.36"
+    # coredns keeps the 3-day-old tag next to today's; etcd's 8-day-old tag expired.
+    assert {f.repo.name: [nt.tag for nt in f.new_tags] for f in report.findings} == {
+        "coredns/coredns": ["v1.14.7", "v1.14.8"],
+    }
+
+
 def test_finalize_quiet_run_is_noop(tmp_path: Path):
     settings = _settings(tmp_path)
-    finalize_run([], settings)
+    finalize_run([], settings, "1.36", NOW)
     assert not settings.state_path.exists()
+    assert not settings.reports_path.exists()

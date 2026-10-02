@@ -1,13 +1,11 @@
 """Reporter agent (Milestone 6).
 
-Consumes structured findings only (never raw diffs) and renders:
-
-  - :func:`render_json` — a machine-readable summary (risk counts + full
-    findings dump) that feeds the dashboard and notifications.
-  - :func:`render_tldr` — a one-line TL;DR suitable for a chat channel.
+Consumes structured findings only (never raw diffs) and renders a one-line
+TL;DR (:func:`render_tldr`) for the run log. The findings themselves are
+persisted as JSON by :mod:`tracker.reports`.
 
 It also owns the link helpers (release notes, diff, advisory URLs) and the risk
-ranking the dashboard reuses.
+ranking the dashboard and notifier reuse.
 
 The reporter is pure (no I/O, no wall-clock), so it is deterministic and
 trivially testable; delivery / publishing is M7.
@@ -15,7 +13,6 @@ trivially testable; delivery / publishing is M7.
 
 from __future__ import annotations
 
-import json
 from collections import Counter
 
 from tracker.models import Finding, GraphState, RepoConfig, Risk
@@ -32,9 +29,9 @@ def release_notes_url(repo: RepoConfig, tag: str) -> str:
     return f"{repo.upstream.rstrip('/')}/releases/tag/{tag}"
 
 
-def compare_url(repo: RepoConfig, tag: str) -> str:
-    """Upstream GitHub compare (diff) URL: last merged tag -> ``tag``."""
-    return f"{repo.upstream.rstrip('/')}/compare/{repo.current_upstream_tag}...{tag}"
+def compare_url(repo: RepoConfig, base: str, tag: str) -> str:
+    """Upstream GitHub compare (diff) URL: ``base`` -> ``tag``."""
+    return f"{repo.upstream.rstrip('/')}/compare/{base}...{tag}"
 
 
 def cve_url(cve: str) -> str:
@@ -76,23 +73,6 @@ def _tag_count(findings: list[Finding]) -> int:
     return sum(len(f.new_tags) for f in findings)
 
 
-# --- json ----------------------------------------------------------------
-
-
-def render_json(findings: list[Finding]) -> str:
-    """Render the machine-readable JSON summary + full findings dump."""
-
-    payload = {
-        "summary": {
-            "repos": len(findings),
-            "tags": _tag_count(findings),
-            "risk_counts": _risk_counts(findings),
-        },
-        "findings": [f.model_dump(by_alias=True) for f in _ranked(findings)],
-    }
-    return json.dumps(payload, indent=2)
-
-
 # --- tldr ----------------------------------------------------------------
 
 
@@ -116,9 +96,5 @@ def render_tldr(findings: list[Finding]) -> str:
 
 
 def reporter_node(state: GraphState) -> GraphState:
-    """Render JSON + TL;DR from ``state['findings']``."""
-    findings = state.get("findings", [])
-    return {
-        "report_json": render_json(findings),
-        "tldr": render_tldr(findings),
-    }
+    """Render the TL;DR from ``state['findings']``."""
+    return {"tldr": render_tldr(state.get("findings", []))}
