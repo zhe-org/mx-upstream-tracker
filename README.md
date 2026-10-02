@@ -97,8 +97,9 @@ Setup (one-time):
 2. In GitHub: **Settings → Secrets and variables → Actions → New repository
    secret**, name `MATTERMOST_WEBHOOK_URL`, value = the webhook URL.
 
-The `notify` job only runs when the run found new tags and no-ops cleanly when
-the secret is unset, so it never fails the workflow. To run it by hand against
+The `notify` job only runs on **scheduled** runs that found new tags (manual
+`workflow_dispatch` runs never post) and no-ops cleanly when the secret is
+unset, so it never fails the workflow. To run it by hand against
 a run's report artifacts:
 
 ```bash

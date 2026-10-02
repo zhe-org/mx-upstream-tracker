@@ -431,8 +431,9 @@ A few options, not mutually exclusive. v1 ships Option A.
   - **Mattermost notification** — a `notify` job (after `pr`) posts one brief
     message — the components with new tags grouped by set (From → To), a risk
     tally, and links to the PR's dashboard preview and the PR — via an
-    **incoming webhook** (`MATTERMOST_WEBHOOK_URL`). It runs only when the run
-    found new tags and no-ops cleanly when the webhook is unset.
+    **incoming webhook** (`MATTERMOST_WEBHOOK_URL`). It runs only on scheduled
+    runs that found new tags (manual `workflow_dispatch` test runs stay silent)
+    and no-ops cleanly when the webhook is unset.
 
 Pros: zero new infra, easy to audit (every run is a workflow run with logs),
 easy to re-trigger manually.
