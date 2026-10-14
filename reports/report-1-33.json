@@ -1,0 +1,126 @@
+{
+  "release_set": "1.33",
+  "generated_at": "2026-10-14T14:24:35+00:00",
+  "findings": [
+    {
+      "repo": {
+        "name": "containerd/containerd",
+        "upstream": "https://github.com/containerd/containerd",
+        "canonical_repo": "https://github.com/canonical/mx-containerd",
+        "canonical_branch": "canonical/2.0/stable",
+        "current_upstream_tag": "v2.0.13"
+      },
+      "new_tags": [
+        {
+          "tag": "v2.0.14",
+          "risk": "high",
+          "summary": "Trial merge conflicts in 6 file(s); needs a manual merge.",
+          "preflight": {
+            "docs_reviewed": true,
+            "cve_refs_found": true,
+            "trial_merge": {
+              "environment": "runner-tmp-workspace",
+              "result": "conflict",
+              "conflicting_paths": [
+                ".github/workflows/api-release.yml",
+                ".github/workflows/ci.yml",
+                ".github/workflows/nightly.yml",
+                ".github/workflows/release.yml",
+                ".github/workflows/scorecards.yml",
+                ".github/workflows/stale.yml"
+              ],
+              "output_ref": "/home/runner/work/mx-upstream-tracker/mx-upstream-tracker/artifacts/containerd-containerd-v2.0.14.log"
+            },
+            "decision": "flagged"
+          },
+          "highlights": [
+            {
+              "kind": "cve_fix",
+              "detail": "A vulnerability in the content and remotes packages could lead to unbounded memory growth when pulling a maliciously crafted image, causing a denial of service. This release bounds reads to the expected size, mitigating the issue.",
+              "area": "remotes/content",
+              "component": "containerd",
+              "cve": "GHSA-hc94-p972-ch66",
+              "severity": "high",
+              "upstream_ref": "21fd0a996"
+            },
+            {
+              "kind": "behaviour_change",
+              "detail": "The default seccomp profile was hardened to use a strict allow-list for socket(2) domains, rather than a range-based check. This prevents any future or unknown socket address families from being permitted by default.",
+              "area": "runtime",
+              "component": "containerd",
+              "cve": null,
+              "severity": null,
+              "upstream_ref": "1183551f1"
+            },
+            {
+              "kind": "behaviour_change",
+              "detail": "The CRI implementation was hardened to not follow symlinks for container log files, preventing potential symlink-based attacks.",
+              "area": "cri",
+              "component": "containerd",
+              "cve": null,
+              "severity": null,
+              "upstream_ref": "85b6459b2"
+            },
+            {
+              "kind": "behaviour_change",
+              "detail": "The image unpack process was hardened to ignore ID-mapping labels from image annotations, preventing a potential security risk from untrusted images.",
+              "area": "snapshot",
+              "component": "containerd",
+              "cve": null,
+              "severity": null,
+              "upstream_ref": "6e9229820"
+            }
+          ],
+          "dependencies": [],
+          "analysis": {
+            "cves": [
+              {
+                "cve": "GHSA-hc94-p972-ch66",
+                "severity": "high",
+                "affects": "Image pulling (content and remotes packages)",
+                "detail": "A vulnerability in the content and remotes packages allows for unbounded memory growth when pulling a maliciously crafted image. An attacker could cause a denial of service by tricking a user into pulling an image with a manifest that reports a layer size larger than the actual data. This release fixes the issue by bounding reads to the expected size and rejecting unexpected extra data."
+              }
+            ],
+            "conflicts": [
+              {
+                "path": ".github/workflows/api-release.yml",
+                "cause": "Upstream modified its GitHub Actions workflow files. Canonical maintains its own CI/CD configuration in these paths.",
+                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing version from the canonical/2.0/stable branch."
+              },
+              {
+                "path": ".github/workflows/ci.yml",
+                "cause": "Upstream modified its GitHub Actions workflow files. Canonical maintains its own CI/CD configuration in these paths.",
+                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing version from the canonical/2.0/stable branch."
+              },
+              {
+                "path": ".github/workflows/nightly.yml",
+                "cause": "Upstream modified its GitHub Actions workflow files. Canonical maintains its own CI/CD configuration in these paths.",
+                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing version from the canonical/2.0/stable branch."
+              },
+              {
+                "path": ".github/workflows/release.yml",
+                "cause": "Upstream modified its GitHub Actions workflow files. Canonical maintains its own CI/CD configuration in these paths.",
+                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing version from the canonical/2.0/stable branch."
+              },
+              {
+                "path": ".github/workflows/scorecards.yml",
+                "cause": "Upstream modified its GitHub Actions workflow files. Canonical maintains its own CI/CD configuration in these paths.",
+                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing version from the canonical/2.0/stable branch."
+              },
+              {
+                "path": ".github/workflows/stale.yml",
+                "cause": "Upstream modified its GitHub Actions workflow files. Canonical maintains its own CI/CD configuration in these paths.",
+                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing version from the canonical/2.0/stable branch."
+              }
+            ]
+          },
+          "notes_for_reviewer": "This is a security release that fixes GHSA-hc94-p972-ch66, a high-severity DoS vulnerability in the image pulling logic. The release also includes several other security hardening changes to the CRI, seccomp profile, and image unpacking. All merge conflicts are trivial, occurring in GitHub workflow files that Canonical replaces; resolve by keeping the existing versions. No dependency changes are included.",
+          "detected_at": "2026-10-14T14:24:35.189071Z",
+          "baseline": "v2.0.13"
+        }
+      ],
+      "tracked_version": "2.0.x",
+      "last_merged_tag": "v2.0.13"
+    }
+  ]
+}

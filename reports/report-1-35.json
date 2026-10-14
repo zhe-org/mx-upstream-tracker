@@ -1,0 +1,188 @@
+{
+  "release_set": "1.35",
+  "generated_at": "2026-10-14T14:25:17+00:00",
+  "findings": [
+    {
+      "repo": {
+        "name": "containerd/containerd",
+        "upstream": "https://github.com/containerd/containerd",
+        "canonical_repo": "https://github.com/canonical/mx-containerd",
+        "canonical_branch": "canonical/2.2/stable",
+        "current_upstream_tag": "v2.2.9"
+      },
+      "new_tags": [
+        {
+          "tag": "v2.2.10",
+          "risk": "high",
+          "summary": "Trial merge conflicts in 8 file(s); needs a manual merge.",
+          "preflight": {
+            "docs_reviewed": true,
+            "cve_refs_found": true,
+            "trial_merge": {
+              "environment": "runner-tmp-workspace",
+              "result": "conflict",
+              "conflicting_paths": [
+                ".github/actions/install-go/action.yml",
+                ".github/workflows/api-release.yml",
+                ".github/workflows/ci.yml",
+                ".github/workflows/nightly.yml",
+                ".github/workflows/release.yml",
+                ".github/workflows/release/Dockerfile",
+                ".github/workflows/scorecards.yml",
+                ".github/workflows/stale.yml"
+              ],
+              "output_ref": "/home/runner/work/mx-upstream-tracker/mx-upstream-tracker/artifacts/containerd-containerd-v2.2.10.log"
+            },
+            "decision": "flagged"
+          },
+          "highlights": [
+            {
+              "kind": "cve_fix",
+              "detail": "Image distribution component hardened to reject image references with '..' path components, preventing a path traversal vulnerability.",
+              "area": "image distribution",
+              "component": "containerd",
+              "cve": "GHSA-vwhp-8p66-mq4f",
+              "severity": "high",
+              "upstream_ref": "4f71fd9b0"
+            },
+            {
+              "kind": "cve_fix",
+              "detail": "CRI checkpoint restore logic fixed to prevent leaking file descriptors and mount points on error paths, addressing a resource leak vulnerability.",
+              "area": "cri",
+              "component": "containerd",
+              "cve": "GHSA-hc94-p972-ch66",
+              "severity": "medium",
+              "upstream_ref": "c3b7534ed"
+            },
+            {
+              "kind": "cve_fix",
+              "detail": "Image component hardened to validate digests when computing referrer labels, preventing a denial of service from malformed digests.",
+              "area": "images",
+              "component": "containerd",
+              "cve": "GHSA-8647-2jxj-p2rc",
+              "severity": "medium",
+              "upstream_ref": "2455fec2f"
+            },
+            {
+              "kind": "cve_fix",
+              "detail": "Unpacking of images hardened to ignore potentially malicious ID-mapping labels from image annotations, preventing uncontrolled resource consumption.",
+              "area": "snapshot",
+              "component": "containerd",
+              "cve": "GHSA-5p7c-hggf-c748",
+              "severity": "medium",
+              "upstream_ref": "076598878"
+            },
+            {
+              "kind": "behaviour_change",
+              "detail": "The default seccomp profile now uses an allow-list for socket(2) domains instead of a block-list, improving security by denying unknown or future address families by default.",
+              "area": "runtime",
+              "component": null,
+              "cve": null,
+              "severity": null,
+              "upstream_ref": "5ba51c0f2"
+            },
+            {
+              "kind": "cve_fix",
+              "detail": "Go toolchain updated to 1.26.9, fixing numerous security vulnerabilities (CVE-2026-97032, CVE-2026-78659, CVE-2026-56866, and others).",
+              "area": "build",
+              "component": "go",
+              "cve": "Multiple",
+              "severity": "high",
+              "upstream_ref": "cb4648a80"
+            }
+          ],
+          "dependencies": [
+            {
+              "name": "go",
+              "from": "1.25.12",
+              "to": "1.26.9",
+              "reason": "cve_fix",
+              "cve": "Multiple"
+            }
+          ],
+          "analysis": {
+            "cves": [
+              {
+                "cve": "GHSA-vwhp-8p66-mq4f",
+                "severity": "high",
+                "affects": "image distribution",
+                "detail": "A path traversal vulnerability in the image reference parser allows a malicious image reference to rewrite the host part of the reference. The fix rejects references containing '..' path components."
+              },
+              {
+                "cve": "GHSA-hc94-p972-ch66",
+                "severity": "medium",
+                "affects": "cri",
+                "detail": "A resource leak (mount point and snapshot view) occurs during CRI checkpoint restore if an error happens after mounting the checkpoint layer. A low-privilege tenant could trigger this, leading to resource exhaustion. The fix ensures the mount is always unmounted on all return paths."
+              },
+              {
+                "cve": "GHSA-8647-2jxj-p2rc",
+                "severity": "medium",
+                "affects": "images",
+                "detail": "A malformed digest in an image manifest could cause a panic when computing referrer GC labels, leading to a denial of service. The fix validates the digest format and skips malformed ones."
+              },
+              {
+                "cve": "GHSA-5p7c-hggf-c748",
+                "severity": "medium",
+                "affects": "snapshot",
+                "detail": "Uncontrolled resource consumption can be triggered when unpacking an image with malicious 'containerd.io/snapshot/id-map' annotations. The fix is to ignore these annotations during unpack."
+              },
+              {
+                "cve": "Multiple",
+                "severity": "high",
+                "affects": "go toolchain",
+                "detail": "The Go toolchain was updated to 1.26.9, which includes fixes for numerous security vulnerabilities. These include high-severity issues in net/http such as CVE-2026-97032 (HTTP/2 server crash) and CVE-2026-56866 (HTTP/1 client connection desynchronization), as well as multiple medium-severity issues addressing memory exhaustion, excessive CPU usage, and request smuggling."
+              }
+            ],
+            "conflicts": [
+              {
+                "path": ".github/actions/install-go/action.yml",
+                "cause": "Upstream modified its GitHub Actions configuration. Canonical maintains its own separate CI/CD workflows in this path.",
+                "resolution_hint": "Discard upstream changes and keep the existing Canonical version of the file."
+              },
+              {
+                "path": ".github/workflows/api-release.yml",
+                "cause": "Upstream modified its GitHub Actions configuration. Canonical maintains its own separate CI/CD workflows in this path.",
+                "resolution_hint": "Discard upstream changes and keep the existing Canonical version of the file."
+              },
+              {
+                "path": ".github/workflows/ci.yml",
+                "cause": "Upstream modified its GitHub Actions configuration. Canonical maintains its own separate CI/CD workflows in this path.",
+                "resolution_hint": "Discard upstream changes and keep the existing Canonical version of the file."
+              },
+              {
+                "path": ".github/workflows/nightly.yml",
+                "cause": "Upstream modified its GitHub Actions configuration. Canonical maintains its own separate CI/CD workflows in this path.",
+                "resolution_hint": "Discard upstream changes and keep the existing Canonical version of the file."
+              },
+              {
+                "path": ".github/workflows/release.yml",
+                "cause": "Upstream modified its GitHub Actions configuration. Canonical maintains its own separate CI/CD workflows in this path.",
+                "resolution_hint": "Discard upstream changes and keep the existing Canonical version of the file."
+              },
+              {
+                "path": ".github/workflows/release/Dockerfile",
+                "cause": "Upstream modified its GitHub Actions configuration. Canonical maintains its own separate CI/CD workflows in this path.",
+                "resolution_hint": "Discard upstream changes and keep the existing Canonical version of the file."
+              },
+              {
+                "path": ".github/workflows/scorecards.yml",
+                "cause": "Upstream modified its GitHub Actions configuration. Canonical maintains its own separate CI/CD workflows in this path.",
+                "resolution_hint": "Discard upstream changes and keep the existing Canonical version of the file."
+              },
+              {
+                "path": ".github/workflows/stale.yml",
+                "cause": "Upstream modified its GitHub Actions configuration. Canonical maintains its own separate CI/CD workflows in this path.",
+                "resolution_hint": "Discard upstream changes and keep the existing Canonical version of the file."
+              }
+            ]
+          },
+          "notes_for_reviewer": "This is a high-risk security release containing important fixes for containerd and its Go toolchain. The merge conflicts are all trivial, confined to GitHub Actions workflow files, and should be resolved by keeping Canonical's versions.\n\nThe primary focus for review should be the security content:\n1.  **containerd CVEs**: The release fixes several vulnerabilities, including path traversal (GHSA-vwhp-8p66-mq4f), a resource leak in CRI checkpointing (GHSA-hc94-p972-ch66), and a DoS from malformed digests (GHSA-8647-2jxj-p2rc).\n2.  **Go Toolchain**: The Go version is bumped to 1.26.9 to address numerous CVEs. Ensure the build process correctly uses the new toolchain.\n3.  **Hardening**: Note the change to the default seccomp profile, which now uses an allow-list for socket domains, improving default security posture.",
+          "detected_at": "2026-10-14T14:25:17.703492Z",
+          "baseline": "v2.2.9"
+        }
+      ],
+      "tracked_version": "2.2.x",
+      "last_merged_tag": "v2.2.9"
+    }
+  ]
+}
