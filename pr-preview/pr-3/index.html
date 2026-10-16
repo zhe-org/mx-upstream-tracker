@@ -115,7 +115,7 @@ footer { color: var(--muted); font-size: 12px; margin: 40px auto 30px; }
 <header class="top">
 <div class="wrap">
 <h1>Upstream Release Review</h1>
-<p class="subtitle">Generated 2026-10-15T14:01:41+00:00</p>
+<p class="subtitle">Generated 2026-10-16T13:48:47+00:00</p>
 <div class="controls"><div class="filters" role="group" aria-label="Filter by risk"><span class="filter-label">Filter:</span><button class="filter-btn active" data-level="all">All</button><button class="filter-btn" data-level="high">High</button><button class="filter-btn" data-level="medium">Medium</button><button class="filter-btn" data-level="low">Low</button></div><div class="toggles"><button class="toggle-btn" data-open="true">Expand all</button><button class="toggle-btn" data-open="false">Collapse all</button></div></div>
 </div></header>
 <main class="wrap">
@@ -206,53 +206,24 @@ The primary focus for review should be the security content:
 </div></details>
 </section>
 <section class="release-set" id="set-1.36">
-<div class="set-header"><h2>Kubernetes 1.36</h2><span class="set-sub">1 new tag(s) &middot; updated 2026-10-14T14:26:10+00:00</span></div>
+<div class="set-header"><h2>Kubernetes 1.36</h2><span class="set-sub">1 new tag(s) &middot; updated 2026-10-16T13:48:47+00:00</span></div>
 <table class="summary">
 <thead><tr>
 <th>Risk</th><th>Component</th><th>From</th><th></th><th>To</th>
 <th>Trial merge</th><th>Summary</th><th>Detected</th>
 </tr></thead>
 <tbody>
-<tr data-risk="high"><td><span class="badge risk-high">high</span></td><td class="component"><a href="https://github.com/containerd/containerd">containerd/containerd</a></td><td class="ver from">v2.3.6</td><td class="arrow">&rarr;</td><td class="ver to"><a href="https://github.com/containerd/containerd/releases/tag/v2.3.7">v2.3.7</a> <a class="difflink" href="https://github.com/containerd/containerd/compare/v2.3.6...v2.3.7" title="View diff">diff</a></td><td><span class="badge merge-conflict">conflict</span></td><td class="summary">Trial merge conflicts in 14 file(s); needs a manual merge.</td><td class="detected">2026-10-14</td></tr>
+<tr data-risk="medium"><td><span class="badge risk-medium">medium</span></td><td class="component"><a href="https://github.com/containerd/containerd">containerd/containerd</a></td><td class="ver from">v2.3.6</td><td class="arrow">&rarr;</td><td class="ver to"><a href="https://github.com/containerd/containerd/releases/tag/v2.3.7">v2.3.7</a> <a class="difflink" href="https://github.com/containerd/containerd/compare/v2.3.6...v2.3.7" title="View diff">diff</a></td><td><span class="badge merge-conflict">conflict</span></td><td class="summary">Trial merge conflicts in 14 file(s); needs a manual merge.</td><td class="detected">2026-10-16</td></tr>
 </tbody>
 </table>
 <h3 class="detail-heading">Flagged components</h3>
-<details class="card" data-risk="high" open>
-<summary>containerd/containerd &nbsp;<span class="mono">v2.3.6 &rarr; v2.3.7</span> <span class="badge risk-high">high</span></summary>
+<details class="card" data-risk="medium" open>
+<summary>containerd/containerd &nbsp;<span class="mono">v2.3.6 &rarr; v2.3.7</span> <span class="badge risk-medium">medium</span></summary>
 <div class="card-body"><p class="sub">Fork branch <code>canonical/2.3/stable</code></p>
-<div class="tag-detail" data-risk="high">
-<h4>v2.3.7 <span class="badge risk-high">high</span> <a class="difflink" href="https://github.com/containerd/containerd/compare/v2.3.6...v2.3.7">diff</a> <a class="difflink" href="https://github.com/containerd/containerd/releases/tag/v2.3.7">release notes</a></h4>
+<div class="tag-detail" data-risk="medium">
+<h4>v2.3.7 <span class="badge risk-medium">medium</span> <a class="difflink" href="https://github.com/containerd/containerd/compare/v2.3.6...v2.3.7">diff</a> <a class="difflink" href="https://github.com/containerd/containerd/releases/tag/v2.3.7">release notes</a></h4>
 <p>Trial merge conflicts in 14 file(s); needs a manual merge.</p>
-<div class="block"><span class="block-label">Highlights</span><ul>
-<li><b>cve_fix</b> [build]: The Go toolchain is updated to go1.26.9, which addresses 15 CVEs in the standard library, primarily affecting net/http and crypto/tls with potential for denial of service, memory exhaustion, and request/response smuggling. (320278f96)</li>
-<li><b>cve_fix</b> [deps]: google.golang.org/grpc is updated to v1.83.2 to address multiple HTTP/2 vulnerabilities (GHSA-2v4p-qf9q-27wj, GHSA-hrxh-6v49-42gf, GHSA-vp52-pcj8-j9qc) that could lead to memory leaks or denial of service. (993898bbf)</li>
-<li><b>cve_fix</b> [cri]: A resource leak in the CRI-API during checkpoint import could be triggered by a low-privilege user, leading to a denial of service. The fix ensures the snapshot view is unmounted on all return paths. (2e17e62e2)</li>
-<li><b>cve_fix</b> [images]: A path traversal vulnerability in image reference parsing allowed `..` components to rewrite the host part of the reference. The fix rejects such references. (b3dd30ae5)</li>
-<li><b>behaviour_change</b> [runtime]: The default seccomp profile has been hardened to use an allow-list for socket(2) domains instead of a block-list, reducing the attack surface by blocking unknown or future address families by default. (658428e2f)</li>
-</ul></div>
-<div class="block"><span class="block-label">Dependencies</span><ul>
-<li><code>go</code>: N/A &rarr; 1.26.9 <em>(cve_fix &mdash; CVE-2026-97032)</em></li>
-<li><code>google.golang.org/grpc</code>: v1.80.0 &rarr; v1.83.2 <em>(cve_fix &mdash; GHSA-2v4p-qf9q-27wj)</em></li>
-<li><code>go.opentelemetry.io/otel</code>: v1.43.0 &rarr; v1.44.0 <em>(cve_fix &mdash; GHSA-5wrp-cwcj-q835)</em></li>
-<li><code>runc</code>: N/A &rarr; v1.5.2 <em>(bug_fix)</em></li>
-<li><code>golang.org/x/net</code>: v0.55.0 &rarr; v0.58.0 <em>(routine_bump)</em></li>
-<li><code>golang.org/x/crypto</code>: v0.53.0 &rarr; v0.55.0 <em>(routine_bump)</em></li>
-</ul></div>
-<div class="block"><span class="block-label">CVEs</span><ul>
-<li><a href="https://nvd.nist.gov/vuln/detail/CVE-2026-97032">CVE-2026-97032</a> <b>(high)</b> &mdash; affects go standard library (net/http): A race condition in the HTTP/2 server&#x27;s HPACK encoder could allow a malicious client to crash the server by repeatedly sending requests while changing the header table size.</li>
-<li><a href="https://github.com/advisories/GHSA-2v4p-qf9q-27wj">GHSA-2v4p-qf9q-27wj</a> <b>(high)</b> &mdash; affects google.golang.org/grpc: A memory leak in gRPC-go&#x27;s HTTP/2 handling can be triggered by a malicious client, leading to a denial of service.</li>
-<li><a href="https://nvd.nist.gov/vuln/detail/CVE-2026-95839">CVE-2026-95839</a> <b>(medium)</b> &mdash; affects containerd CRI: A resource leak during CRI checkpoint import could be triggered by a low-privilege user. An error after mounting the checkpoint layer&#x27;s snapshot view would leak the mount, which could lead to denial of service.</li>
-<li><a href="https://github.com/advisories/GHSA-8647-2jxj-p2rc">GHSA-8647-2jxj-p2rc</a> <b>(medium)</b> &mdash; affects containerd image handling: A path traversal vulnerability existed in the parsing of image references, where `..` components could be used to alter the host part of the reference. This is now rejected.</li>
-<li><a href="https://github.com/advisories/GHSA-5p7c-hggf-c748">GHSA-5p7c-hggf-c748</a> <b>(medium)</b> &mdash; affects containerd CRI: The containerd CRI component could be made to follow symlinks for container log paths, potentially allowing access to or modification of files outside the intended log directory. The fix disables following symlinks for log files.</li>
-<li><a href="https://github.com/advisories/GHSA-hc94-p972-ch66">GHSA-hc94-p972-ch66</a> <b>(medium)</b> &mdash; affects containerd content/remotes: Lack of input validation on read sizes in content and remotes APIs could lead to excessive resource allocation and denial of service. Reads are now bounded to the expected size.</li>
-</ul></div>
-<div class="block"><span class="block-label">Conflicts</span><ul>
-<li><code>.github/</code>: Upstream has made changes to its GitHub Actions workflows and related files. Canonical maintains its own separate CI configuration in these paths. &rarr; These conflicts are non-substantive. Discard all upstream changes within the `.github/` directory and keep the existing Canonical versions.</li>
-<li><code>go.mod</code>: Upstream v2.3.7 updates multiple dependencies, including google.golang.org/grpc and its transitive dependencies, to address several CVEs. This conflicts with the dependency versions in the Canonical branch. &rarr; Accept the upstream dependency versions from v2.3.7 to incorporate the security fixes. After resolving the conflicts in `go.mod`, run `go mod tidy` to ensure consistency.</li>
-<li><code>go.sum</code>: This conflict is a direct result of the `go.mod` changes. Both sides have different checksums for their respective dependency trees. &rarr; This file should not be resolved manually. After resolving `go.mod` and running `go mod tidy`, this file will be regenerated correctly.</li>
-<li><code>vendor/</code>: This conflict is a direct result of the `go.mod` changes. The vendored source code differs between the two branches. &rarr; Do not resolve these conflicts manually. After resolving `go.mod`, run `go mod vendor` (or `make vendor`) to regenerate the entire `vendor/` directory based on the updated `go.mod`.</li>
-</ul></div>
-<div class="block notes"><span class="block-label">Notes for reviewer</span><p>This is a high-risk merge due to the large number of critical security fixes and resulting dependency conflicts. The primary task is to resolve the `go.mod` conflict by adopting upstream&#x27;s newer dependency versions, which are required for CVE fixes in Go, gRPC, and OpenTelemetry. Once `go.mod` is resolved, regenerate `go.sum` and the `vendor/` directory to fix the remaining conflicts. Conflicts in `.github/` are trivial and should be resolved by keeping Canonical&#x27;s existing files.</p></div>
+<div class="block notes"><span class="block-label">Notes for reviewer</span><p>[deep analysis unavailable: Error code: 403 - {&#x27;error&#x27;: {&#x27;message&#x27;: &#x27;Budget limit exceeded (monthly limit). Contact your org admin. $0.27 of $0.10 used; resets 2026-11-01T00:00:00.000Z.&#x27;, &#x27;code&#x27;: 403, &#x27;metadata&#x27;: {&#x27;limit_source&#x27;: &#x27;openrouter_guardrail_budget&#x27;, &#x27;remedy_hint&#x27;: &#x27;Wait for the budget window to reset (see metadata.resets_at), or ask your org admin to raise the guardrail budget.&#x27;, &#x27;scope&#x27;: &#x27;workspace_default_member&#x27;, &#x27;limit_usd&#x27;: 0.1, &#x27;spend_usd&#x27;: 0.268815, &#x27;resets_at&#x27;: &#x27;2026-11-01T00:00:00.000Z&#x27;}}}]</p></div>
 </div>
 </div></details>
 </section>
