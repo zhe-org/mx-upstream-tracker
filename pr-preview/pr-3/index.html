@@ -115,7 +115,7 @@ footer { color: var(--muted); font-size: 12px; margin: 40px auto 30px; }
 <header class="top">
 <div class="wrap">
 <h1>Upstream Release Review</h1>
-<p class="subtitle">Generated 2026-10-23T14:07:41+00:00</p>
+<p class="subtitle">Generated 2026-10-24T13:10:27+00:00</p>
 <div class="controls"><div class="filters" role="group" aria-label="Filter by risk"><span class="filter-label">Filter:</span><button class="filter-btn active" data-level="all">All</button><button class="filter-btn" data-level="high">High</button><button class="filter-btn" data-level="medium">Medium</button><button class="filter-btn" data-level="low">Low</button></div><div class="toggles"><button class="toggle-btn" data-open="true">Expand all</button><button class="toggle-btn" data-open="false">Collapse all</button></div></div>
 </div></header>
 <main class="wrap">
@@ -124,8 +124,8 @@ footer { color: var(--muted); font-size: 12px; margin: 40px auto 30px; }
 <div class="set-cards">
 <a class="set-card" href="#set-1.33"><span class="set-name">Kubernetes 1.33</span><span class="set-meta">0 new tag(s)</span></a>
 <a class="set-card" href="#set-1.35"><span class="set-name">Kubernetes 1.35</span><span class="set-meta">0 new tag(s)</span></a>
-<a class="set-card" href="#set-1.36"><span class="set-name">Kubernetes 1.36</span><span class="set-meta">1 new tag(s)</span></a>
-<a class="set-card" href="#set-1.37"><span class="set-name">Kubernetes 1.37</span><span class="set-meta">2 new tag(s)</span></a>
+<a class="set-card" href="#set-1.36"><span class="set-name">Kubernetes 1.36</span><span class="set-meta">2 new tag(s)</span></a>
+<a class="set-card" href="#set-1.37"><span class="set-name">Kubernetes 1.37</span><span class="set-meta">1 new tag(s)</span></a>
 </div>
 </section>
 <section class="release-set" id="set-1.33">
@@ -137,17 +137,27 @@ footer { color: var(--muted); font-size: 12px; margin: 40px auto 30px; }
 <p class="empty">No new upstream tags in the last 7 days — all components are up to date.</p>
 </section>
 <section class="release-set" id="set-1.36">
-<div class="set-header"><h2>Kubernetes 1.36</h2><span class="set-sub">1 new tag(s) &middot; updated 2026-10-20T14:11:11+00:00</span></div>
+<div class="set-header"><h2>Kubernetes 1.36</h2><span class="set-sub">2 new tag(s) &middot; updated 2026-10-24T13:10:27+00:00</span></div>
 <table class="summary">
 <thead><tr>
 <th>Risk</th><th>Component</th><th>From</th><th></th><th>To</th>
 <th>Trial merge</th><th>Summary</th><th>Detected</th>
 </tr></thead>
 <tbody>
+<tr data-risk="medium"><td><span class="badge risk-medium">medium</span></td><td class="component"><a href="https://github.com/etcd-io/etcd">etcd-io/etcd</a></td><td class="ver from">v3.6.15</td><td class="arrow">&rarr;</td><td class="ver to"><a href="https://github.com/etcd-io/etcd/releases/tag/v3.6.16">v3.6.16</a> <a class="difflink" href="https://github.com/etcd-io/etcd/compare/v3.6.15...v3.6.16" title="View diff">diff</a></td><td><span class="badge merge-clean">clean</span></td><td class="summary">Trial merge clean; 16 commit(s) since v3.6.15.</td><td class="detected">2026-10-24</td></tr>
 <tr data-risk="medium"><td><span class="badge risk-medium">medium</span></td><td class="component"><a href="https://github.com/golang/go">golang/go</a></td><td class="ver from">go1.26.9</td><td class="arrow">&rarr;</td><td class="ver to"><a href="https://github.com/golang/go/releases/tag/go1.26.10">go1.26.10</a> <a class="difflink" href="https://github.com/golang/go/compare/go1.26.9...go1.26.10" title="View diff">diff</a></td><td><span class="badge merge-clean">clean</span></td><td class="summary">Trial merge clean; 3 commit(s) since go1.26.9.</td><td class="detected">2026-10-20</td></tr>
 </tbody>
 </table>
 <h3 class="detail-heading">Flagged components</h3>
+<details class="card" data-risk="medium" open>
+<summary>etcd-io/etcd &nbsp;<span class="mono">v3.6.15 &rarr; v3.6.16</span> <span class="badge risk-medium">medium</span></summary>
+<div class="card-body"><p class="sub">Fork branch <code>canonical/3.6/stable</code></p>
+<div class="tag-detail" data-risk="medium">
+<h4>v3.6.16 <span class="badge risk-medium">medium</span> <a class="difflink" href="https://github.com/etcd-io/etcd/compare/v3.6.15...v3.6.16">diff</a> <a class="difflink" href="https://github.com/etcd-io/etcd/releases/tag/v3.6.16">release notes</a></h4>
+<p>Trial merge clean; 16 commit(s) since v3.6.15.</p>
+<div class="block notes"><span class="block-label">Notes for reviewer</span><p>[deep analysis unavailable: Error code: 404 - {&#x27;error&#x27;: {&#x27;message&#x27;: &#x27;0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons):\nZDR violation (account settings): 1 endpoint excluded; configurable at https://openrouter.ai/settings/privacy&#x27;, &#x27;code&#x27;: 404, &#x27;metadata&#x27;: {&#x27;input_endpoint_count&#x27;: 1, &#x27;ineligibility_reasons&#x27;: [{&#x27;reason&#x27;: &#x27;zdr-violation-by-account&#x27;, &#x27;endpoint_count&#x27;: 1, &#x27;configure_url&#x27;: &#x27;https://openrouter.ai/settings/privacy&#x27;}], &#x27;routing_funnel&#x27;: [{&#x27;step&#x27;: &#x27;Initial Endpoints&#x27;, &#x27;endpoint_count&#x27;: 3}, {&#x27;step&#x27;: &#x27;Filter by Tier Endpoint Rows&#x27;, &#x27;endpoint_count&#x27;: 1, &#x27;reason&#x27;: &#x27;Excluded tier endpoint rows the request did not opt into&#x27;}], &#x27;failed_routing_step&#x27;: &#x27;Filter by Guardrails&#x27;}}}]</p></div>
+</div>
+</div></details>
 <details class="card" data-risk="medium" open>
 <summary>golang/go &nbsp;<span class="mono">go1.26.9 &rarr; go1.26.10</span> <span class="badge risk-medium">medium</span></summary>
 <div class="card-body"><p class="sub">Fork branch <code>canonical/1.26/stable</code></p>
@@ -159,27 +169,17 @@ footer { color: var(--muted); font-size: 12px; margin: 40px auto 30px; }
 </div></details>
 </section>
 <section class="release-set" id="set-1.37">
-<div class="set-header"><h2>Kubernetes 1.37</h2><span class="set-sub">2 new tag(s) &middot; updated 2026-10-23T14:07:41+00:00</span></div>
+<div class="set-header"><h2>Kubernetes 1.37</h2><span class="set-sub">1 new tag(s) &middot; updated 2026-10-23T14:07:41+00:00</span></div>
 <table class="summary">
 <thead><tr>
 <th>Risk</th><th>Component</th><th>From</th><th></th><th>To</th>
 <th>Trial merge</th><th>Summary</th><th>Detected</th>
 </tr></thead>
 <tbody>
-<tr data-risk="medium"><td><span class="badge risk-medium">medium</span></td><td class="component"><a href="https://github.com/containerd/containerd">containerd/containerd</a></td><td class="ver from">v2.4.1</td><td class="arrow">&rarr;</td><td class="ver to"><a href="https://github.com/containerd/containerd/releases/tag/v2.4.2">v2.4.2</a> <a class="difflink" href="https://github.com/containerd/containerd/compare/v2.4.1...v2.4.2" title="View diff">diff</a></td><td><span class="badge merge-conflict">conflict</span></td><td class="summary">Trial merge conflicts in 8 file(s); needs a manual merge.</td><td class="detected">2026-10-17</td></tr>
 <tr data-risk="medium"><td><span class="badge risk-medium">medium</span></td><td class="component"><a href="https://github.com/etcd-io/etcd">etcd-io/etcd</a></td><td class="ver from">v3.7.2</td><td class="arrow">&rarr;</td><td class="ver to"><a href="https://github.com/etcd-io/etcd/releases/tag/v3.7.3">v3.7.3</a> <a class="difflink" href="https://github.com/etcd-io/etcd/compare/v3.7.2...v3.7.3" title="View diff">diff</a></td><td><span class="badge merge-clean">clean</span></td><td class="summary">Trial merge clean; 19 commit(s) since v3.7.2.</td><td class="detected">2026-10-23</td></tr>
 </tbody>
 </table>
 <h3 class="detail-heading">Flagged components</h3>
-<details class="card" data-risk="medium" open>
-<summary>containerd/containerd &nbsp;<span class="mono">v2.4.1 &rarr; v2.4.2</span> <span class="badge risk-medium">medium</span></summary>
-<div class="card-body"><p class="sub">Fork branch <code>canonical/2.4/stable</code></p>
-<div class="tag-detail" data-risk="medium">
-<h4>v2.4.2 <span class="badge risk-medium">medium</span> <a class="difflink" href="https://github.com/containerd/containerd/compare/v2.4.1...v2.4.2">diff</a> <a class="difflink" href="https://github.com/containerd/containerd/releases/tag/v2.4.2">release notes</a></h4>
-<p>Trial merge conflicts in 8 file(s); needs a manual merge.</p>
-<div class="block notes"><span class="block-label">Notes for reviewer</span><p>[deep analysis unavailable: Error code: 403 - {&#x27;error&#x27;: {&#x27;message&#x27;: &#x27;Budget limit exceeded (monthly limit). Contact your org admin. $0.27 of $0.10 used; resets 2026-11-01T00:00:00.000Z.&#x27;, &#x27;code&#x27;: 403, &#x27;metadata&#x27;: {&#x27;limit_source&#x27;: &#x27;openrouter_guardrail_budget&#x27;, &#x27;remedy_hint&#x27;: &#x27;Wait for the budget window to reset (see metadata.resets_at), or ask your org admin to raise the guardrail budget.&#x27;, &#x27;scope&#x27;: &#x27;workspace_default_member&#x27;, &#x27;limit_usd&#x27;: 0.1, &#x27;spend_usd&#x27;: 0.268815, &#x27;resets_at&#x27;: &#x27;2026-11-01T00:00:00.000Z&#x27;}}}]</p></div>
-</div>
-</div></details>
 <details class="card" data-risk="medium" open>
 <summary>etcd-io/etcd &nbsp;<span class="mono">v3.7.2 &rarr; v3.7.3</span> <span class="badge risk-medium">medium</span></summary>
 <div class="card-body"><p class="sub">Fork branch <code>canonical/3.7/stable</code></p>
