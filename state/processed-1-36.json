@@ -1,5 +1,7 @@
 {
   "last_scanned": {
-    "containerd/containerd": "v2.3.6"
+    "containerd/containerd": "v2.3.7",
+    "etcd-io/etcd": "v3.6.16",
+    "golang/go": "go1.26.10"
   }
 }

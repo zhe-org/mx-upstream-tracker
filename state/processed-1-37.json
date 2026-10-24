@@ -1,5 +1,7 @@
 {
   "last_scanned": {
+    "containerd/containerd": "v2.4.2",
+    "etcd-io/etcd": "v3.7.3",
     "opencontainers/runc": "v1.5.2"
   }
 }

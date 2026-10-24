@@ -1,206 +1,76 @@
 {
   "release_set": "1.36",
-  "generated_at": "2026-10-14T14:26:10+00:00",
+  "generated_at": "2026-10-24T13:10:27+00:00",
   "findings": [
     {
       "repo": {
-        "name": "containerd/containerd",
-        "upstream": "https://github.com/containerd/containerd",
-        "canonical_repo": "https://github.com/canonical/mx-containerd",
-        "canonical_branch": "canonical/2.3/stable",
-        "current_upstream_tag": "v2.3.6"
+        "name": "golang/go",
+        "upstream": "https://github.com/golang/go",
+        "canonical_repo": "https://github.com/canonical/mx-golang",
+        "canonical_branch": "canonical/1.26/stable",
+        "current_upstream_tag": "go1.26.9"
       },
       "new_tags": [
         {
-          "tag": "v2.3.7",
-          "risk": "high",
-          "summary": "Trial merge conflicts in 14 file(s); needs a manual merge.",
+          "tag": "go1.26.10",
+          "risk": "medium",
+          "summary": "Trial merge clean; 3 commit(s) since go1.26.9.",
+          "preflight": {
+            "docs_reviewed": false,
+            "cve_refs_found": true,
+            "trial_merge": {
+              "environment": "runner-tmp-workspace",
+              "result": "clean",
+              "conflicting_paths": [],
+              "output_ref": "/home/runner/work/mx-upstream-tracker/mx-upstream-tracker/artifacts/golang-go-go1.26.10.log"
+            },
+            "decision": "flagged"
+          },
+          "highlights": [],
+          "dependencies": [],
+          "analysis": null,
+          "notes_for_reviewer": "[deep analysis unavailable: Error code: 404 - {'error': {'message': '0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons):\\nZDR violation (account settings): 1 endpoint excluded; configurable at https://openrouter.ai/settings/privacy', 'code': 404, 'metadata': {'input_endpoint_count': 1, 'ineligibility_reasons': [{'reason': 'zdr-violation-by-account', 'endpoint_count': 1, 'configure_url': 'https://openrouter.ai/settings/privacy'}], 'routing_funnel': [{'step': 'Initial Endpoints', 'endpoint_count': 3}, {'step': 'Filter by Tier Endpoint Rows', 'endpoint_count': 1, 'reason': 'Excluded tier endpoint rows the request did not opt into'}], 'failed_routing_step': 'Filter by Guardrails'}}}]",
+          "detected_at": "2026-10-20T14:11:11.511368Z",
+          "baseline": "go1.26.9"
+        }
+      ],
+      "tracked_version": "1.26.x",
+      "last_merged_tag": "go1.26.9"
+    },
+    {
+      "repo": {
+        "name": "etcd-io/etcd",
+        "upstream": "https://github.com/etcd-io/etcd",
+        "canonical_repo": "https://github.com/canonical/mx-etcd",
+        "canonical_branch": "canonical/3.6/stable",
+        "current_upstream_tag": "v3.6.15"
+      },
+      "new_tags": [
+        {
+          "tag": "v3.6.16",
+          "risk": "medium",
+          "summary": "Trial merge clean; 16 commit(s) since v3.6.15.",
           "preflight": {
             "docs_reviewed": true,
             "cve_refs_found": true,
             "trial_merge": {
               "environment": "runner-tmp-workspace",
-              "result": "conflict",
-              "conflicting_paths": [
-                ".github/actions/install-go/action.yml",
-                ".github/workflows/api-release.yml",
-                ".github/workflows/buf-breaking.yml",
-                ".github/workflows/ci.yml",
-                ".github/workflows/nightly.yml",
-                ".github/workflows/release.yml",
-                ".github/workflows/release/Dockerfile",
-                ".github/workflows/scorecards.yml",
-                "go.mod",
-                "go.sum",
-                "vendor/golang.org/x/net/http2/server_wrap.go",
-                "vendor/golang.org/x/net/http2/transport_wrap.go",
-                "vendor/golang.org/x/net/idna/idna10.0.0.go",
-                "vendor/modules.txt"
-              ],
-              "output_ref": "/home/runner/work/mx-upstream-tracker/mx-upstream-tracker/artifacts/containerd-containerd-v2.3.7.log"
+              "result": "clean",
+              "conflicting_paths": [],
+              "output_ref": "/home/runner/work/mx-upstream-tracker/mx-upstream-tracker/artifacts/etcd-io-etcd-v3.6.16.log"
             },
             "decision": "flagged"
           },
-          "highlights": [
-            {
-              "kind": "cve_fix",
-              "detail": "The Go toolchain is updated to go1.26.9, which addresses 15 CVEs in the standard library, primarily affecting net/http and crypto/tls with potential for denial of service, memory exhaustion, and request/response smuggling.",
-              "area": "build",
-              "component": "go",
-              "cve": "CVE-2026-97032",
-              "severity": "high",
-              "upstream_ref": "320278f96"
-            },
-            {
-              "kind": "cve_fix",
-              "detail": "google.golang.org/grpc is updated to v1.83.2 to address multiple HTTP/2 vulnerabilities (GHSA-2v4p-qf9q-27wj, GHSA-hrxh-6v49-42gf, GHSA-vp52-pcj8-j9qc) that could lead to memory leaks or denial of service.",
-              "area": "deps",
-              "component": "google.golang.org/grpc",
-              "cve": "GHSA-2v4p-qf9q-27wj",
-              "severity": "high",
-              "upstream_ref": "993898bbf"
-            },
-            {
-              "kind": "cve_fix",
-              "detail": "A resource leak in the CRI-API during checkpoint import could be triggered by a low-privilege user, leading to a denial of service. The fix ensures the snapshot view is unmounted on all return paths.",
-              "area": "cri",
-              "component": "containerd",
-              "cve": "CVE-2026-95839",
-              "severity": "medium",
-              "upstream_ref": "2e17e62e2"
-            },
-            {
-              "kind": "cve_fix",
-              "detail": "A path traversal vulnerability in image reference parsing allowed `..` components to rewrite the host part of the reference. The fix rejects such references.",
-              "area": "images",
-              "component": "containerd",
-              "cve": "GHSA-8647-2jxj-p2rc",
-              "severity": "medium",
-              "upstream_ref": "b3dd30ae5"
-            },
-            {
-              "kind": "behaviour_change",
-              "detail": "The default seccomp profile has been hardened to use an allow-list for socket(2) domains instead of a block-list, reducing the attack surface by blocking unknown or future address families by default.",
-              "area": "runtime",
-              "component": null,
-              "cve": null,
-              "severity": null,
-              "upstream_ref": "658428e2f"
-            }
-          ],
-          "dependencies": [
-            {
-              "name": "go",
-              "from": "N/A",
-              "to": "1.26.9",
-              "reason": "cve_fix",
-              "cve": "CVE-2026-97032"
-            },
-            {
-              "name": "google.golang.org/grpc",
-              "from": "v1.80.0",
-              "to": "v1.83.2",
-              "reason": "cve_fix",
-              "cve": "GHSA-2v4p-qf9q-27wj"
-            },
-            {
-              "name": "go.opentelemetry.io/otel",
-              "from": "v1.43.0",
-              "to": "v1.44.0",
-              "reason": "cve_fix",
-              "cve": "GHSA-5wrp-cwcj-q835"
-            },
-            {
-              "name": "runc",
-              "from": "N/A",
-              "to": "v1.5.2",
-              "reason": "bug_fix",
-              "cve": null
-            },
-            {
-              "name": "golang.org/x/net",
-              "from": "v0.55.0",
-              "to": "v0.58.0",
-              "reason": "routine_bump",
-              "cve": null
-            },
-            {
-              "name": "golang.org/x/crypto",
-              "from": "v0.53.0",
-              "to": "v0.55.0",
-              "reason": "routine_bump",
-              "cve": null
-            }
-          ],
-          "analysis": {
-            "cves": [
-              {
-                "cve": "CVE-2026-97032",
-                "severity": "high",
-                "affects": "go standard library (net/http)",
-                "detail": "A race condition in the HTTP/2 server's HPACK encoder could allow a malicious client to crash the server by repeatedly sending requests while changing the header table size."
-              },
-              {
-                "cve": "GHSA-2v4p-qf9q-27wj",
-                "severity": "high",
-                "affects": "google.golang.org/grpc",
-                "detail": "A memory leak in gRPC-go's HTTP/2 handling can be triggered by a malicious client, leading to a denial of service."
-              },
-              {
-                "cve": "CVE-2026-95839",
-                "severity": "medium",
-                "affects": "containerd CRI",
-                "detail": "A resource leak during CRI checkpoint import could be triggered by a low-privilege user. An error after mounting the checkpoint layer's snapshot view would leak the mount, which could lead to denial of service."
-              },
-              {
-                "cve": "GHSA-8647-2jxj-p2rc",
-                "severity": "medium",
-                "affects": "containerd image handling",
-                "detail": "A path traversal vulnerability existed in the parsing of image references, where `..` components could be used to alter the host part of the reference. This is now rejected."
-              },
-              {
-                "cve": "GHSA-5p7c-hggf-c748",
-                "severity": "medium",
-                "affects": "containerd CRI",
-                "detail": "The containerd CRI component could be made to follow symlinks for container log paths, potentially allowing access to or modification of files outside the intended log directory. The fix disables following symlinks for log files."
-              },
-              {
-                "cve": "GHSA-hc94-p972-ch66",
-                "severity": "medium",
-                "affects": "containerd content/remotes",
-                "detail": "Lack of input validation on read sizes in content and remotes APIs could lead to excessive resource allocation and denial of service. Reads are now bounded to the expected size."
-              }
-            ],
-            "conflicts": [
-              {
-                "path": ".github/",
-                "cause": "Upstream has made changes to its GitHub Actions workflows and related files. Canonical maintains its own separate CI configuration in these paths.",
-                "resolution_hint": "These conflicts are non-substantive. Discard all upstream changes within the `.github/` directory and keep the existing Canonical versions."
-              },
-              {
-                "path": "go.mod",
-                "cause": "Upstream v2.3.7 updates multiple dependencies, including google.golang.org/grpc and its transitive dependencies, to address several CVEs. This conflicts with the dependency versions in the Canonical branch.",
-                "resolution_hint": "Accept the upstream dependency versions from v2.3.7 to incorporate the security fixes. After resolving the conflicts in `go.mod`, run `go mod tidy` to ensure consistency."
-              },
-              {
-                "path": "go.sum",
-                "cause": "This conflict is a direct result of the `go.mod` changes. Both sides have different checksums for their respective dependency trees.",
-                "resolution_hint": "This file should not be resolved manually. After resolving `go.mod` and running `go mod tidy`, this file will be regenerated correctly."
-              },
-              {
-                "path": "vendor/",
-                "cause": "This conflict is a direct result of the `go.mod` changes. The vendored source code differs between the two branches.",
-                "resolution_hint": "Do not resolve these conflicts manually. After resolving `go.mod`, run `go mod vendor` (or `make vendor`) to regenerate the entire `vendor/` directory based on the updated `go.mod`."
-              }
-            ]
-          },
-          "notes_for_reviewer": "This is a high-risk merge due to the large number of critical security fixes and resulting dependency conflicts. The primary task is to resolve the `go.mod` conflict by adopting upstream's newer dependency versions, which are required for CVE fixes in Go, gRPC, and OpenTelemetry. Once `go.mod` is resolved, regenerate `go.sum` and the `vendor/` directory to fix the remaining conflicts. Conflicts in `.github/` are trivial and should be resolved by keeping Canonical's existing files.",
-          "detected_at": "2026-10-14T14:26:10.660488Z",
-          "baseline": "v2.3.6"
+          "highlights": [],
+          "dependencies": [],
+          "analysis": null,
+          "notes_for_reviewer": "[deep analysis unavailable: Error code: 404 - {'error': {'message': '0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons):\\nZDR violation (account settings): 1 endpoint excluded; configurable at https://openrouter.ai/settings/privacy', 'code': 404, 'metadata': {'input_endpoint_count': 1, 'ineligibility_reasons': [{'reason': 'zdr-violation-by-account', 'endpoint_count': 1, 'configure_url': 'https://openrouter.ai/settings/privacy'}], 'routing_funnel': [{'step': 'Initial Endpoints', 'endpoint_count': 3}, {'step': 'Filter by Tier Endpoint Rows', 'endpoint_count': 1, 'reason': 'Excluded tier endpoint rows the request did not opt into'}], 'failed_routing_step': 'Filter by Guardrails'}}}]",
+          "detected_at": "2026-10-24T13:10:27.076381Z",
+          "baseline": "v3.6.15"
         }
       ],
-      "tracked_version": "2.3.x",
-      "last_merged_tag": "v2.3.6"
+      "tracked_version": "3.6.x",
+      "last_merged_tag": "v3.6.15"
     }
   ]
 }
