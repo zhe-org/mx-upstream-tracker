@@ -1,6 +1,6 @@
 {
   "release_set": "1.37",
-  "generated_at": "2026-10-14T14:24:42+00:00",
+  "generated_at": "2026-10-23T14:07:41+00:00",
   "findings": [
     {
       "repo": {
@@ -13,7 +13,7 @@
       "new_tags": [
         {
           "tag": "v2.4.2",
-          "risk": "high",
+          "risk": "medium",
           "summary": "Trial merge conflicts in 8 file(s); needs a manual merge.",
           "preflight": {
             "docs_reviewed": true,
@@ -35,188 +35,51 @@
             },
             "decision": "flagged"
           },
-          "highlights": [
-            {
-              "kind": "cve_fix",
-              "detail": "A potential denial of service vulnerability existed where a malformed image digest could cause a panic when computing referrer GC labels. The logic is now hardened to validate the digest and skip malformed ones.",
-              "area": "images",
-              "component": "containerd",
-              "cve": "CVE-2026-95839",
-              "severity": "medium",
-              "upstream_ref": "20a3b31390653d7a83fdaeb0c318b01a263c9d9a"
-            },
-            {
-              "kind": "cve_fix",
-              "detail": "A path traversal vulnerability allowed specially crafted image references containing `..` to rewrite the host component. The reference parser now rejects such paths.",
-              "area": "remotes",
-              "component": "containerd",
-              "cve": "GHSA-8647-2jxj-p2rc",
-              "severity": "medium",
-              "upstream_ref": "6b631559bd8fa7cd368ad0db7d97b1b46c2e0457"
-            },
-            {
-              "kind": "cve_fix",
-              "detail": "A denial of service vulnerability was possible due to unbounded reads in the content and remotes packages. Reads are now bounded to the expected size to prevent excessive data from being processed.",
-              "area": "content, remotes",
-              "component": "containerd",
-              "cve": "GHSA-hc94-p972-ch66",
-              "severity": "medium",
-              "upstream_ref": "91f62bdd77e8851fbc6153013b52c25d2badf80e"
-            },
-            {
-              "kind": "cve_fix",
-              "detail": "The Go toolchain was updated to go1.26.9 / go1.27.2, which includes 15 security fixes for vulnerabilities in packages such as net/http, crypto/tls, and cmd/go.",
-              "area": "build",
-              "component": "go",
-              "cve": "Multiple",
-              "severity": "high",
-              "upstream_ref": "9c06c813e23fc4082c2fcc2a97cf18f40406f71d"
-            },
-            {
-              "kind": "behaviour_change",
-              "detail": "The default seccomp profile was hardened to use an allow-list for socket(2) domains, blocking unknown or future address families by default. This matches a similar change in Moby's default profile.",
-              "area": "runtime",
-              "component": "seccomp",
-              "cve": null,
-              "severity": null,
-              "upstream_ref": "7936ee5789f2e915ad9f3d2bed5493e4dd28378b"
-            },
-            {
-              "kind": "behaviour_change",
-              "detail": "The CRI implementation was hardened to not follow symbolic links for container log files, preventing potential log data exposure or manipulation.",
-              "area": "cri",
-              "component": null,
-              "cve": null,
-              "severity": null,
-              "upstream_ref": "098de667dd0b4e83dc135f87420f55a4f05a190d"
-            },
-            {
-              "kind": "bug_fix",
-              "detail": "Fixed excessive memory usage during image pulls by throttling chunk buffers, preventing a situation where a fast registry could cause chunks to accumulate in memory faster than they could be written to the content store.",
-              "area": "remotes",
-              "component": null,
-              "cve": null,
-              "severity": null,
-              "upstream_ref": "6a78f854af4ba1366fb95f0d66324e3e10e250d1"
-            }
-          ],
-          "dependencies": [
-            {
-              "name": "go",
-              "from": "go1.26.x",
-              "to": "go1.27.2",
-              "reason": "cve_fix",
-              "cve": "Multiple"
-            },
-            {
-              "name": "runc",
-              "from": "v1.5.1",
-              "to": "v1.5.2",
-              "reason": "cve_fix",
-              "cve": "GO-2026-6238"
-            }
-          ],
-          "analysis": {
-            "cves": [
-              {
-                "cve": "CVE-2026-95839",
-                "severity": "medium",
-                "affects": "images",
-                "detail": "A malformed digest in an image manifest could cause a panic in containerd when computing referrer GC labels, leading to a denial of service. This is also tracked as GHSA-vwhp-8p66-mq4f."
-              },
-              {
-                "cve": "GHSA-8647-2jxj-p2rc",
-                "severity": "medium",
-                "affects": "remotes",
-                "detail": "A path traversal vulnerability in the image reference parser allowed a reference containing `..` to rewrite the host component, potentially leading to incorrect image resolution or other security issues."
-              },
-              {
-                "cve": "GHSA-hc94-p972-ch66",
-                "severity": "medium",
-                "affects": "content, remotes",
-                "detail": "Unbounded reads in content copying and remote fetching could lead to a denial of service if a source provided more data than expected. Reads are now bounded to the expected size."
-              },
-              {
-                "cve": "CVE-2026-97032",
-                "severity": "high",
-                "affects": "go: net/http",
-                "detail": "A race condition in the HTTP/2 server's HPACK encoder could be triggered by a malicious client, leading to a server crash."
-              },
-              {
-                "cve": "CVE-2026-78659",
-                "severity": "medium",
-                "affects": "go: net/http",
-                "detail": "A malicious client could cause memory exhaustion in an HTTP/2 server by sending a \"Trailer\" header declaring a large number of fields."
-              },
-              {
-                "cve": "CVE-2026-97031",
-                "severity": "medium",
-                "affects": "go: crypto/tls",
-                "detail": "A malformed ECH outer extension reference could trigger memory exhaustion in a TLS server."
-              },
-              {
-                "cve": "CVE-2026-56866",
-                "severity": "medium",
-                "affects": "go: net/http",
-                "detail": "An HTTP/1 client transport could desynchronize a connection after a rejected CONNECT request, leading to potential response poisoning in reverse proxies."
-              },
-              {
-                "cve": "GO-2026-6238",
-                "severity": "medium",
-                "affects": "runc",
-                "detail": "The bundled runc binary was updated to v1.5.2. This version switches from cilium/ebpf to a different implementation for managing cgroup v2 device rules, mitigating an issue in the cilium/ebpf library."
-              }
-            ],
-            "conflicts": [
-              {
-                "path": ".github/actions/install-go/action.yml",
-                "cause": "Upstream modified its GitHub Actions workflow configuration. Canonical maintains its own separate CI/CD workflows and does not use the upstream ones.",
-                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing file from the `canonical/2.4/stable` branch."
-              },
-              {
-                "path": ".github/workflows/api-release.yml",
-                "cause": "Upstream modified its GitHub Actions workflow configuration. Canonical maintains its own separate CI/CD workflows and does not use the upstream ones.",
-                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing file from the `canonical/2.4/stable` branch."
-              },
-              {
-                "path": ".github/workflows/buf-breaking.yml",
-                "cause": "Upstream modified its GitHub Actions workflow configuration. Canonical maintains its own separate CI/CD workflows and does not use the upstream ones.",
-                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing file from the `canonical/2.4/stable` branch."
-              },
-              {
-                "path": ".github/workflows/ci.yml",
-                "cause": "Upstream modified its GitHub Actions workflow configuration. Canonical maintains its own separate CI/CD workflows and does not use the upstream ones.",
-                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing file from the `canonical/2.4/stable` branch."
-              },
-              {
-                "path": ".github/workflows/nightly.yml",
-                "cause": "Upstream modified its GitHub Actions workflow configuration. Canonical maintains its own separate CI/CD workflows and does not use the upstream ones.",
-                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing file from the `canonical/2.4/stable` branch."
-              },
-              {
-                "path": ".github/workflows/release.yml",
-                "cause": "Upstream modified its GitHub Actions workflow configuration. Canonical maintains its own separate CI/CD workflows and does not use the upstream ones.",
-                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing file from the `canonical/2.4/stable` branch."
-              },
-              {
-                "path": ".github/workflows/release/Dockerfile",
-                "cause": "Upstream modified its GitHub Actions workflow configuration. Canonical maintains its own separate CI/CD workflows and does not use the upstream ones.",
-                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing file from the `canonical/2.4/stable` branch."
-              },
-              {
-                "path": ".github/workflows/scorecards.yml",
-                "cause": "Upstream modified its GitHub Actions workflow configuration. Canonical maintains its own separate CI/CD workflows and does not use the upstream ones.",
-                "resolution_hint": "Trivial conflict. Discard the upstream changes and keep the existing file from the `canonical/2.4/stable` branch."
-              }
-            ]
-          },
-          "notes_for_reviewer": "This is a significant security release. It includes fixes for three containerd-specific vulnerabilities (DoS, path traversal) and updates the Go toolchain to address 15 CVEs. The bundled runc binary is also updated. All merge conflicts are trivial and relate to CI/workflow files that should be discarded in favor of Canonical's versions. The primary focus of the review should be on validating the integration of these security patches.",
-          "detected_at": "2026-10-14T14:24:42.762842Z",
+          "highlights": [],
+          "dependencies": [],
+          "analysis": null,
+          "notes_for_reviewer": "[deep analysis unavailable: Error code: 403 - {'error': {'message': 'Budget limit exceeded (monthly limit). Contact your org admin. $0.27 of $0.10 used; resets 2026-11-01T00:00:00.000Z.', 'code': 403, 'metadata': {'limit_source': 'openrouter_guardrail_budget', 'remedy_hint': 'Wait for the budget window to reset (see metadata.resets_at), or ask your org admin to raise the guardrail budget.', 'scope': 'workspace_default_member', 'limit_usd': 0.1, 'spend_usd': 0.268815, 'resets_at': '2026-11-01T00:00:00.000Z'}}}]",
+          "detected_at": "2026-10-17T12:45:41.518053Z",
           "baseline": "v2.4.1"
         }
       ],
       "tracked_version": "2.4.x",
       "last_merged_tag": "v2.4.1"
+    },
+    {
+      "repo": {
+        "name": "etcd-io/etcd",
+        "upstream": "https://github.com/etcd-io/etcd",
+        "canonical_repo": "https://github.com/canonical/mx-etcd",
+        "canonical_branch": "canonical/3.7/stable",
+        "current_upstream_tag": "v3.7.2"
+      },
+      "new_tags": [
+        {
+          "tag": "v3.7.3",
+          "risk": "medium",
+          "summary": "Trial merge clean; 19 commit(s) since v3.7.2.",
+          "preflight": {
+            "docs_reviewed": true,
+            "cve_refs_found": true,
+            "trial_merge": {
+              "environment": "runner-tmp-workspace",
+              "result": "clean",
+              "conflicting_paths": [],
+              "output_ref": "/home/runner/work/mx-upstream-tracker/mx-upstream-tracker/artifacts/etcd-io-etcd-v3.7.3.log"
+            },
+            "decision": "flagged"
+          },
+          "highlights": [],
+          "dependencies": [],
+          "analysis": null,
+          "notes_for_reviewer": "[deep analysis unavailable: Error code: 404 - {'error': {'message': '0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons):\\nZDR violation (account settings): 1 endpoint excluded; configurable at https://openrouter.ai/settings/privacy', 'code': 404, 'metadata': {'input_endpoint_count': 1, 'ineligibility_reasons': [{'reason': 'zdr-violation-by-account', 'endpoint_count': 1, 'configure_url': 'https://openrouter.ai/settings/privacy'}], 'routing_funnel': [{'step': 'Initial Endpoints', 'endpoint_count': 3}, {'step': 'Filter by Tier Endpoint Rows', 'endpoint_count': 1, 'reason': 'Excluded tier endpoint rows the request did not opt into'}], 'failed_routing_step': 'Filter by Guardrails'}}}]",
+          "detected_at": "2026-10-23T14:07:41.043911Z",
+          "baseline": "v3.7.2"
+        }
+      ],
+      "tracked_version": "3.7.x",
+      "last_merged_tag": "v3.7.2"
     }
   ]
 }
